@@ -43,7 +43,7 @@ export function useProductImage({ itemId, name, store, currentImgStatus }: Args)
         }
 
         const res = await fetch(
-          `/api/image-lookup?q=${encodeURIComponent(name)}`
+          `/api/image-lookup?q=${encodeURIComponent(name)}&store=${store}`
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
