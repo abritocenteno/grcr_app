@@ -2,23 +2,13 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import Image from "next/image";
-import { Store } from "@/types";
+import { getStoreColor, storeLabel } from "@/lib/storeColors";
 import type { Suggestion } from "@/app/api/suggestions/route";
 
 interface AddItemInputProps {
   onAdd: (name: string) => void;
-  store: Store;
+  store: string;
 }
-
-const STORE_RING: Record<Store, string> = {
-  lidl: "focus:ring-lidl/40",
-  ah: "focus:ring-ah/40",
-};
-
-const STORE_BUTTON: Record<Store, string> = {
-  lidl: "bg-lidl hover:bg-[#003d85] active:bg-[#003d85]",
-  ah: "bg-ah hover:bg-[#0080b5] active:bg-[#0080b5]",
-};
 
 export function AddItemInput({ onAdd, store }: AddItemInputProps) {
   const [value, setValue] = useState("");
@@ -30,9 +20,9 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  const storeName = store === "lidl" ? "Lidl" : "Albert Heijn";
+  const color = getStoreColor(store);
+  const label = storeLabel(store);
 
-  // Debounced suggestions fetch
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (value.trim().length < 2) {
@@ -44,7 +34,6 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
     debounceRef.current = setTimeout(async () => {
       abortRef.current?.abort();
       abortRef.current = new AbortController();
-
       setLoading(true);
       try {
         const res = await fetch(
@@ -64,12 +53,9 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [value, store]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     function onPointerDown(e: PointerEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
+      if (!containerRef.current?.contains(e.target as Node)) setShowDropdown(false);
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -90,10 +76,6 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
     if (e.key === "Escape") { setShowDropdown(false); setSuggestions([]); }
   }
 
-  function pickSuggestion(s: Suggestion) {
-    submit(s.name);
-  }
-
   return (
     <div ref={containerRef} className="relative flex flex-col px-4 pb-4">
       <div className="flex gap-2">
@@ -104,16 +86,16 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
-          placeholder={`Add to ${storeName}…`}
+          placeholder={`Add to ${label}…`}
           className={[
             "flex-1 min-h-[48px] px-4 rounded-2xl",
             "bg-warm-card dark:bg-gray-800 shadow-card",
             "text-warm-text dark:text-gray-100",
             "placeholder:text-warm-subtle dark:placeholder:text-gray-500",
-            "border-0 focus:outline-none focus:ring-2",
-            STORE_RING[store],
+            "border-0 focus:outline-none focus:ring-2 focus:ring-offset-0",
             "text-base font-medium",
           ].join(" ")}
+          style={{ "--tw-ring-color": color.bg + "66" } as React.CSSProperties}
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
@@ -125,8 +107,8 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
             "min-h-[48px] min-w-[48px] px-5 rounded-2xl text-white font-bold text-lg",
             "transition-all duration-150 shadow-card",
             "disabled:opacity-40 disabled:cursor-not-allowed",
-            STORE_BUTTON[store],
           ].join(" ")}
+          style={{ backgroundColor: color.bg, color: color.text }}
           aria-label="Add item"
         >
           +
@@ -144,29 +126,19 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
           {suggestions.map((s, i) => (
             <button
               key={i}
-              onPointerDown={(e) => { e.preventDefault(); pickSuggestion(s); }}
+              onPointerDown={(e) => { e.preventDefault(); submit(s.name); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 active:bg-warm-bg dark:active:bg-gray-800 transition-colors text-left"
             >
-              {/* Tiny thumbnail */}
               <div className="w-8 h-8 rounded-lg bg-warm-bg dark:bg-gray-800 flex-shrink-0 overflow-hidden flex items-center justify-center">
                 {s.imgUrl ? (
-                  <Image
-                    src={s.imgUrl}
-                    alt={s.name}
-                    width={32}
-                    height={32}
-                    className="object-contain w-full h-full"
-                    unoptimized
-                  />
+                  <Image src={s.imgUrl} alt={s.name} width={32} height={32} className="object-contain w-full h-full" unoptimized />
                 ) : (
                   <svg className="w-4 h-4 text-warm-muted dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M6 5.25h12A2.25 2.25 0 0120.25 7.5v9A2.25 2.25 0 0118 18.75H6A2.25 2.25 0 013.75 16.5v-9A2.25 2.25 0 016 5.25z" />
                   </svg>
                 )}
               </div>
-              <span className="text-sm font-medium text-warm-text dark:text-gray-100 truncate">
-                {s.name}
-              </span>
+              <span className="text-sm font-medium text-warm-text dark:text-gray-100 truncate">{s.name}</span>
             </button>
           ))}
         </div>

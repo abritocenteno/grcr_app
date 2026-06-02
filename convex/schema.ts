@@ -13,7 +13,7 @@ export default defineSchema({
 
   items: defineTable({
     listId: v.id("lists"),
-    store: v.union(v.literal("lidl"), v.literal("ah")),
+    store: v.string(),
     name: v.string(),
     qty: v.number(),
     done: v.boolean(),

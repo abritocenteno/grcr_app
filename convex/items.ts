@@ -36,15 +36,14 @@ async function canAccessItem(ctx: any, itemId: Id<"items">) {
 }
 
 export const getItems = query({
-  args: { listId: v.id("lists"), store: v.optional(v.union(v.literal("lidl"), v.literal("ah"))) },
-  handler: async (ctx, { listId, store }) => {
+  args: { listId: v.id("lists") },
+  handler: async (ctx, { listId }) => {
     await canAccessList(ctx, listId);
-    const items = await ctx.db
+    return await ctx.db
       .query("items")
       .withIndex("by_list", (q: any) => q.eq("listId", listId))
       .order("desc")
       .collect();
-    return store ? items.filter((i: any) => i.store === store) : items;
   },
 });
 
@@ -52,7 +51,7 @@ export const addItem = mutation({
   args: {
     listId: v.id("lists"),
     name: v.string(),
-    store: v.union(v.literal("lidl"), v.literal("ah")),
+    store: v.string(),
   },
   handler: async (ctx, { listId, name, store }) => {
     await canAccessList(ctx, listId);

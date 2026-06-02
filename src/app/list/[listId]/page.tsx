@@ -13,8 +13,9 @@ import { ItemCardGrid } from "@/components/ItemCardGrid";
 import { ListFooter } from "@/components/ListFooter";
 import { ViewToggle, ViewMode } from "@/components/ViewToggle";
 import { ShareSheet } from "@/components/ShareSheet";
-import { Store } from "@/types";
 import { Id } from "../../../../convex/_generated/dataModel";
+
+const DEFAULT_STORES = ["lidl", "ah"];
 
 function SkeletonList() {
   return (
@@ -54,14 +55,27 @@ export default function ListPage() {
   const listId = params.listId as Id<"lists">;
 
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
-  const [activeStore, setActiveStore] = useState<Store>("lidl");
+  const [activeStore, setActiveStore] = useState<string>("lidl");
+  const [stores, setStores] = useState<string[]>(DEFAULT_STORES);
   const [view, setView] = useState<ViewMode>("grid");
   const [shareOpen, setShareOpen] = useState(false);
 
   const { list, isLoading: listLoading } = useList(isAuthenticated ? listId : null);
-  const { items, isLoading: itemsLoading, addItem, deleteItem, toggleDone, changeQty, clearDone, resetList } =
-    useItems(isAuthenticated ? listId : null, activeStore);
+  // Fetch ALL items — no store filter; we filter client-side
+  const { items: allItems, isLoading: itemsLoading, addItem, deleteItem, toggleDone, changeQty, clearDone, resetList } =
+    useItems(isAuthenticated ? listId : null);
   const { groups } = useGroups();
+
+  // Derive store tabs from actual item data, merged with local state
+  useEffect(() => {
+    if (allItems.length > 0) {
+      const itemStores = [...new Set(allItems.map((i) => i.store))];
+      setStores((prev) => {
+        const combined = [...new Set([...prev, ...itemStores])];
+        return combined;
+      });
+    }
+  }, [allItems]);
 
   useEffect(() => {
     const saved = localStorage.getItem("grocery-view") as ViewMode | null;
@@ -73,10 +87,17 @@ export default function ListPage() {
     localStorage.setItem("grocery-view", v);
   }
 
+  function handleAddStore(name: string) {
+    const key = name.trim();
+    if (!key) return;
+    setStores((prev) =>
+      prev.map((s) => s.toLowerCase()).includes(key.toLowerCase()) ? prev : [...prev, key]
+    );
+    setActiveStore(key);
+  }
+
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace("/sign-in");
-    }
+    if (!authLoading && !isAuthenticated) router.replace("/sign-in");
   }, [authLoading, isAuthenticated, router]);
 
   if (authLoading || !isAuthenticated) {
@@ -87,9 +108,18 @@ export default function ListPage() {
     );
   }
 
-  // Count unchecked items per store for badges
-  const lidlUnchecked = activeStore === "lidl" ? items.filter((i) => !i.done).length : 0;
-  const ahUnchecked = activeStore === "ah" ? items.filter((i) => !i.done).length : 0;
+  // Per-store unchecked counts (for ALL stores, shown on every tab)
+  const countMap: Record<string, number> = {};
+  for (const store of stores) {
+    countMap[store] = allItems.filter(
+      (i) => i.store.toLowerCase() === store.toLowerCase() && !i.done
+    ).length;
+  }
+
+  // Items shown in the current tab
+  const items = allItems.filter(
+    (i) => i.store.toLowerCase() === activeStore.toLowerCase()
+  );
 
   const doneCount = items.filter((i) => i.done).length;
   const totalCount = items.length;
@@ -128,11 +158,13 @@ export default function ListPage() {
         </div>
 
         <StoreTabs
+          stores={stores}
           activeStore={activeStore}
           onSwitch={setActiveStore}
-          lidlCount={lidlUnchecked}
-          ahCount={ahUnchecked}
+          onAddStore={handleAddStore}
+          countMap={countMap}
         />
+
         <AddItemInput onAdd={(name) => addItem(name, activeStore)} store={activeStore} />
       </header>
 
@@ -149,7 +181,7 @@ export default function ListPage() {
             </div>
             <p className="text-sm font-semibold text-warm-text dark:text-gray-300">Nothing here yet</p>
             <p className="text-xs text-warm-subtle dark:text-gray-500 mt-1">
-              Add items to your {activeStore === "lidl" ? "Lidl" : "Albert Heijn"} list
+              Add items for this store above
             </p>
           </div>
         ) : view === "grid" ? (
@@ -184,12 +216,7 @@ export default function ListPage() {
       {/* Footer */}
       {!isLoading && (
         <footer className="sticky bottom-0 bg-warm-bg dark:bg-gray-950 pb-[env(safe-area-inset-bottom)]">
-          <ListFooter
-            doneCount={doneCount}
-            totalCount={totalCount}
-            onClearDone={clearDone}
-            onResetList={resetList}
-          />
+          <ListFooter doneCount={doneCount} totalCount={totalCount} onClearDone={clearDone} onResetList={resetList} />
         </footer>
       )}
 

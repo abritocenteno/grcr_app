@@ -3,14 +3,15 @@
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { GroceryItem, Store } from "@/types";
+import { GroceryItem } from "@/types";
 
-export function useItems(listId: Id<"lists"> | null, store?: Store) {
+export function useItems(listId: Id<"lists"> | null) {
   const { isAuthenticated } = useConvexAuth();
 
+  // Returns ALL items for the list — store filtering is done client-side
   const items = useQuery(
     api.items.getItems,
-    isAuthenticated && listId ? { listId, store } : "skip"
+    isAuthenticated && listId ? { listId } : "skip"
   ) as GroceryItem[] | undefined;
 
   const addItemMutation = useMutation(api.items.addItem);
@@ -23,8 +24,8 @@ export function useItems(listId: Id<"lists"> | null, store?: Store) {
   return {
     items: items ?? [],
     isLoading: items === undefined,
-    addItem: (name: string, itemStore: Store) =>
-      listId ? addItemMutation({ listId, name, store: itemStore }) : Promise.resolve(null),
+    addItem: (name: string, store: string) =>
+      listId ? addItemMutation({ listId, name, store }) : Promise.resolve(null),
     deleteItem: (itemId: Id<"items">) => deleteItemMutation({ itemId }),
     toggleDone: (itemId: Id<"items">) => toggleDoneMutation({ itemId }),
     changeQty: (itemId: Id<"items">, delta: -1 | 1) => changeQtyMutation({ itemId, delta }),

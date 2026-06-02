@@ -1,6 +1,6 @@
 import { Id } from "../../convex/_generated/dataModel";
 
-export type Store = "lidl" | "ah";
+export type Store = string; // any store name, e.g. "lidl", "ah", "jumbo"
 export type ImgStatus = "idle" | "loading" | "done" | "error";
 export type GroupRole = "owner" | "member";
 export type ViewMode = "list" | "grid";
