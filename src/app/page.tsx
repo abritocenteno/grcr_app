@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
+import { useConvexAuth } from "convex/react";
 import { useGroceryLists } from "@/hooks/useGroceryLists";
 import { useItems } from "@/hooks/useItems";
 import { StoreTabs } from "@/components/StoreTabs";
@@ -24,8 +26,24 @@ function SkeletonCard() {
 }
 
 export default function Home() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const [activeStore, setActiveStore] = useState<Store>("lidl");
   const { lidlListId, ahListId, isLoading: listsLoading } = useGroceryLists();
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace("/sign-in");
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white dark:bg-gray-950">
+        <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   const activeListId = activeStore === "lidl" ? lidlListId : ahListId;
   const lidlItems = useItems(lidlListId);

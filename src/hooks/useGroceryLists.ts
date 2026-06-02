@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 
@@ -10,14 +10,15 @@ export function useGroceryLists(): {
   ahListId: Id<"lists"> | null;
   isLoading: boolean;
 } {
-  const lists = useQuery(api.lists.getUserLists);
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const lists = useQuery(api.lists.getUserLists, isAuthenticated ? {} : "skip");
   const ensureLists = useMutation(api.lists.ensureUserLists);
 
   useEffect(() => {
-    ensureLists();
-  }, [ensureLists]);
+    if (isAuthenticated) ensureLists();
+  }, [isAuthenticated, ensureLists]);
 
-  if (lists === undefined) {
+  if (authLoading || lists === undefined) {
     return { lidlListId: null, ahListId: null, isLoading: true };
   }
 
