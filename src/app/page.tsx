@@ -29,7 +29,11 @@ export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const [activeStore, setActiveStore] = useState<Store>("lidl");
+
+  // All hooks must be called unconditionally before any early return
   const { lidlListId, ahListId, isLoading: listsLoading } = useGroceryLists();
+  const lidlItems = useItems(lidlListId);
+  const ahItems = useItems(ahListId);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -46,19 +50,14 @@ export default function Home() {
   }
 
   const activeListId = activeStore === "lidl" ? lidlListId : ahListId;
-  const lidlItems = useItems(lidlListId);
-  const ahItems = useItems(ahListId);
-
   const activeListHook = activeStore === "lidl" ? lidlItems : ahItems;
   const { items, isLoading: itemsLoading, addItem, deleteItem, toggleDone, changeQty, clearDone } =
     activeListHook;
 
   const doneCount = items.filter((i) => i.done).length;
   const totalCount = items.length;
-
   const lidlUnchecked = lidlItems.items.filter((i) => !i.done).length;
   const ahUnchecked = ahItems.items.filter((i) => !i.done).length;
-
   const isLoading = listsLoading || (activeListId !== null && itemsLoading);
 
   return (
