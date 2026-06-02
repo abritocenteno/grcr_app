@@ -18,6 +18,7 @@ export function useItems(listId: Id<"lists"> | null, store?: Store) {
   const toggleDoneMutation = useMutation(api.items.toggleDone);
   const changeQtyMutation = useMutation(api.items.changeQty);
   const clearDoneMutation = useMutation(api.items.clearDone);
+  const resetListMutation = useMutation(api.items.resetList);
 
   return {
     items: items ?? [],
@@ -28,5 +29,6 @@ export function useItems(listId: Id<"lists"> | null, store?: Store) {
     toggleDone: (itemId: Id<"items">) => toggleDoneMutation({ itemId }),
     changeQty: (itemId: Id<"items">, delta: -1 | 1) => changeQtyMutation({ itemId, delta }),
     clearDone: () => listId ? clearDoneMutation({ listId }) : Promise.resolve(null),
+    resetList: () => listId ? resetListMutation({ listId }) : Promise.resolve(null),
   };
 }

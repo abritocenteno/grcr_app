@@ -59,7 +59,7 @@ export default function ListPage() {
   const [shareOpen, setShareOpen] = useState(false);
 
   const { list, isLoading: listLoading } = useList(isAuthenticated ? listId : null);
-  const { items, isLoading: itemsLoading, addItem, deleteItem, toggleDone, changeQty, clearDone } =
+  const { items, isLoading: itemsLoading, addItem, deleteItem, toggleDone, changeQty, clearDone, resetList } =
     useItems(isAuthenticated ? listId : null, activeStore);
   const { groups } = useGroups();
 
@@ -184,7 +184,12 @@ export default function ListPage() {
       {/* Footer */}
       {!isLoading && (
         <footer className="sticky bottom-0 bg-warm-bg dark:bg-gray-950 pb-[env(safe-area-inset-bottom)]">
-          <ListFooter doneCount={doneCount} totalCount={totalCount} onClearDone={clearDone} />
+          <ListFooter
+            doneCount={doneCount}
+            totalCount={totalCount}
+            onClearDone={clearDone}
+            onResetList={resetList}
+          />
         </footer>
       )}
 

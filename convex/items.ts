@@ -121,3 +121,19 @@ export const clearDone = mutation({
     await Promise.all(doneItems.map((item: { _id: Id<"items"> }) => ctx.db.delete(item._id)));
   },
 });
+
+export const resetList = mutation({
+  args: { listId: v.id("lists") },
+  handler: async (ctx, { listId }) => {
+    await canAccessList(ctx, listId);
+    const doneItems = await ctx.db
+      .query("items")
+      .withIndex("by_list_done", (q: any) => q.eq("listId", listId).eq("done", true))
+      .collect();
+    await Promise.all(
+      doneItems.map((item: { _id: Id<"items"> }) =>
+        ctx.db.patch(item._id, { done: false })
+      )
+    );
+  },
+});
