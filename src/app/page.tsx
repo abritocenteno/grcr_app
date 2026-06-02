@@ -9,7 +9,10 @@ import { useGroups } from "@/hooks/useGroups";
 import { ListCard } from "@/components/ListCard";
 import { FAB } from "@/components/FAB";
 import { CreateListSheet } from "@/components/CreateListSheet";
+import { SuggestionsSection } from "@/components/SuggestionsSection";
+import { QuickAddSheet } from "@/components/QuickAddSheet";
 import { Id } from "../../convex/_generated/dataModel";
+import type { SuggestionItem } from "@/components/SuggestionsSection";
 
 function SkeletonListCard() {
   return (
@@ -26,7 +29,8 @@ function SkeletonListCard() {
 export default function Home() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
+  const [quickAddItem, setQuickAddItem] = useState<SuggestionItem | null>(null);
   const { lists, isLoading: listsLoading, createList, deleteList } = useLists();
   const { groups } = useGroups();
 
@@ -47,7 +51,7 @@ export default function Home() {
   return (
     <div className="flex flex-col min-h-screen max-w-md mx-auto bg-warm-bg dark:bg-gray-950">
       {/* Header */}
-      <header className="px-4 pt-12 pb-4">
+      <header className="px-4 pt-12 pb-5">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-extrabold text-warm-text dark:text-gray-100 tracking-tight">
@@ -61,23 +65,34 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Lists */}
       <main className="flex-1 overflow-y-auto pb-28">
+        {/* Popular / frequent items grid */}
+        <SuggestionsSection onSelect={(item) => setQuickAddItem(item)} />
+
+        {/* Divider + "Your lists" label */}
+        <div className="flex items-center gap-3 px-4 pb-3">
+          <h2 className="text-base font-extrabold text-warm-text dark:text-gray-100 tracking-tight whitespace-nowrap">
+            Your lists
+          </h2>
+          <div className="flex-1 h-px bg-warm-muted/60 dark:bg-gray-800" />
+        </div>
+
+        {/* Lists */}
         {listsLoading ? (
           <>
             <SkeletonListCard />
             <SkeletonListCard />
           </>
         ) : lists.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
-            <div className="w-24 h-24 rounded-3xl bg-warm-card dark:bg-gray-900 shadow-card flex items-center justify-center mb-5">
-              <svg className="w-12 h-12 text-warm-muted dark:bg-gray-800 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+          <div className="flex flex-col items-center justify-center py-12 px-8 text-center">
+            <div className="w-20 h-20 rounded-3xl bg-warm-card dark:bg-gray-900 shadow-card flex items-center justify-center mb-4">
+              <svg className="w-10 h-10 text-warm-muted dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
-            <p className="text-base font-bold text-warm-text dark:text-gray-200">No lists yet</p>
-            <p className="text-sm text-warm-subtle dark:text-gray-500 mt-1 max-w-[200px]">
-              Tap + New list to create your first shopping list
+            <p className="text-sm font-bold text-warm-text dark:text-gray-200">No lists yet</p>
+            <p className="text-xs text-warm-subtle dark:text-gray-500 mt-1">
+              Tap + New list to get started
             </p>
           </div>
         ) : (
@@ -91,13 +106,19 @@ export default function Home() {
         )}
       </main>
 
-      <FAB onPress={() => setSheetOpen(true)} />
+      <FAB onPress={() => setCreateSheetOpen(true)} />
 
       <CreateListSheet
-        isOpen={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+        isOpen={createSheetOpen}
+        onClose={() => setCreateSheetOpen(false)}
         onCreate={(name, groupId) => createList(name, groupId)}
         groups={groups}
+      />
+
+      <QuickAddSheet
+        item={quickAddItem}
+        lists={lists}
+        onClose={() => setQuickAddItem(null)}
       />
     </div>
   );

@@ -12,6 +12,7 @@ import type * as groups from "../groups.js";
 import type * as imgCache from "../imgCache.js";
 import type * as items from "../items.js";
 import type * as lists from "../lists.js";
+import type * as suggestions from "../suggestions.js";
 
 import type {
   ApiFromModules,
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   imgCache: typeof imgCache;
   items: typeof items;
   lists: typeof lists;
+  suggestions: typeof suggestions;
 }>;
 
 /**
