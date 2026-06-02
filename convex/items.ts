@@ -8,44 +8,57 @@ async function requireAuth(ctx: { auth: { getUserIdentity: () => Promise<{ subje
   return identity.subject;
 }
 
-async function verifyListOwnership(
-  ctx: { db: any; auth: { getUserIdentity: () => Promise<{ subject: string } | null> } },
-  listId: Id<"lists">
-) {
+async function canAccessList(ctx: any, listId: Id<"lists">) {
   const userId = await requireAuth(ctx);
   const list = await ctx.db.get(listId);
-  if (!list || list.userId !== userId) throw new Error("Forbidden");
-  return userId;
+  if (!list) throw new Error("List not found");
+
+  if (list.ownerId === userId) return userId;
+
+  if (list.groupId) {
+    const membership = await ctx.db
+      .query("groupMembers")
+      .withIndex("by_group_user", (q: any) =>
+        q.eq("groupId", list.groupId).eq("userId", userId)
+      )
+      .first();
+    if (membership) return userId;
+  }
+
+  throw new Error("Forbidden");
 }
 
-async function verifyItemOwnership(
-  ctx: { db: any; auth: { getUserIdentity: () => Promise<{ subject: string } | null> } },
-  itemId: Id<"items">
-) {
+async function canAccessItem(ctx: any, itemId: Id<"items">) {
   const item = await ctx.db.get(itemId);
   if (!item) throw new Error("Item not found");
-  await verifyListOwnership(ctx, item.listId);
+  await canAccessList(ctx, item.listId);
   return item;
 }
 
 export const getItems = query({
-  args: { listId: v.id("lists") },
-  handler: async (ctx, { listId }) => {
-    await verifyListOwnership(ctx, listId);
-    return await ctx.db
+  args: { listId: v.id("lists"), store: v.optional(v.union(v.literal("lidl"), v.literal("ah"))) },
+  handler: async (ctx, { listId, store }) => {
+    await canAccessList(ctx, listId);
+    const items = await ctx.db
       .query("items")
       .withIndex("by_list", (q: any) => q.eq("listId", listId))
       .order("desc")
       .collect();
+    return store ? items.filter((i: any) => i.store === store) : items;
   },
 });
 
 export const addItem = mutation({
-  args: { listId: v.id("lists"), name: v.string() },
-  handler: async (ctx, { listId, name }) => {
-    await verifyListOwnership(ctx, listId);
+  args: {
+    listId: v.id("lists"),
+    name: v.string(),
+    store: v.union(v.literal("lidl"), v.literal("ah")),
+  },
+  handler: async (ctx, { listId, name, store }) => {
+    await canAccessList(ctx, listId);
     return await ctx.db.insert("items", {
       listId,
+      store,
       name: name.trim(),
       qty: 1,
       done: false,
@@ -58,7 +71,7 @@ export const addItem = mutation({
 export const deleteItem = mutation({
   args: { itemId: v.id("items") },
   handler: async (ctx, { itemId }) => {
-    await verifyItemOwnership(ctx, itemId);
+    await canAccessItem(ctx, itemId);
     await ctx.db.delete(itemId);
   },
 });
@@ -66,7 +79,7 @@ export const deleteItem = mutation({
 export const toggleDone = mutation({
   args: { itemId: v.id("items") },
   handler: async (ctx, { itemId }) => {
-    const item = await verifyItemOwnership(ctx, itemId);
+    const item = await canAccessItem(ctx, itemId);
     await ctx.db.patch(itemId, { done: !item.done });
   },
 });
@@ -74,7 +87,7 @@ export const toggleDone = mutation({
 export const changeQty = mutation({
   args: { itemId: v.id("items"), delta: v.union(v.literal(-1), v.literal(1)) },
   handler: async (ctx, { itemId, delta }) => {
-    const item = await verifyItemOwnership(ctx, itemId);
+    const item = await canAccessItem(ctx, itemId);
     const newQty = Math.max(1, item.qty + delta);
     await ctx.db.patch(itemId, { qty: newQty });
   },
@@ -92,7 +105,7 @@ export const updateImgUrl = mutation({
     ),
   },
   handler: async (ctx, { itemId, imgUrl, imgStatus }) => {
-    await verifyItemOwnership(ctx, itemId);
+    await canAccessItem(ctx, itemId);
     await ctx.db.patch(itemId, { imgUrl, imgStatus });
   },
 });
@@ -100,7 +113,7 @@ export const updateImgUrl = mutation({
 export const clearDone = mutation({
   args: { listId: v.id("lists") },
   handler: async (ctx, { listId }) => {
-    await verifyListOwnership(ctx, listId);
+    await canAccessList(ctx, listId);
     const doneItems = await ctx.db
       .query("items")
       .withIndex("by_list_done", (q: any) => q.eq("listId", listId).eq("done", true))
