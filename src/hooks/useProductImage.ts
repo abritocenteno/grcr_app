@@ -4,18 +4,19 @@ import { useEffect, useRef } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
-import { ImgStatus } from "@/types";
+import { ImgStatus, Store } from "@/types";
 
 interface Args {
   itemId: Id<"items">;
   name: string;
+  store: Store;
   currentImgStatus: ImgStatus;
 }
 
-export function useProductImage({ itemId, name, currentImgStatus }: Args) {
-  const key = name.toLowerCase().trim();
+export function useProductImage({ itemId, name, store, currentImgStatus }: Args) {
+  // Cache key includes store so AH/Lidl images are stored separately
+  const key = `${store}:${name.toLowerCase().trim()}`;
 
-  // Only query the cache when there's actually work to do
   const cached = useQuery(
     api.imgCache.getCached,
     currentImgStatus === "idle" ? { productName: key } : "skip"
@@ -27,7 +28,7 @@ export function useProductImage({ itemId, name, currentImgStatus }: Args) {
 
   useEffect(() => {
     if (currentImgStatus !== "idle") return;
-    if (cached === undefined) return; // cache query still loading
+    if (cached === undefined) return;
     if (hasFetched.current) return;
     hasFetched.current = true;
 
@@ -36,19 +37,16 @@ export function useProductImage({ itemId, name, currentImgStatus }: Args) {
         await updateImgUrl({ itemId, imgUrl: undefined, imgStatus: "loading" });
 
         if (cached !== null) {
-          // Cache hit — use stored result
           const imgUrl = cached.imgUrl;
-          await updateImgUrl({
-            itemId,
-            imgUrl,
-            imgStatus: imgUrl ? "done" : "error",
-          });
+          await updateImgUrl({ itemId, imgUrl, imgStatus: imgUrl ? "done" : "error" });
           return;
         }
 
-        // Cache miss — call the API route
-        const res = await fetch(`/api/image-lookup?q=${encodeURIComponent(name)}`);
+        const res = await fetch(
+          `/api/image-lookup?q=${encodeURIComponent(name)}`
+        );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
         const data: { imgUrl: string | null } = await res.json();
         const imgUrl = data.imgUrl ?? undefined;
 
@@ -61,5 +59,5 @@ export function useProductImage({ itemId, name, currentImgStatus }: Args) {
     }
 
     resolve();
-  }, [currentImgStatus, cached, itemId, name, key, updateImgUrl, setCached]);
+  }, [currentImgStatus, cached, itemId, name, store, key, updateImgUrl, setCached]);
 }

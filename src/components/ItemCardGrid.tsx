@@ -32,6 +32,7 @@ function GridProductImage({ item }: { item: GroceryItem }) {
   useProductImage({
     itemId: item._id,
     name: item.name,
+    store: item.store,
     currentImgStatus: item.imgStatus,
   });
 

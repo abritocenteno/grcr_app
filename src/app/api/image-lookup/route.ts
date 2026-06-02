@@ -1,57 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 
-interface OFFProduct {
+const OFF_SEARCH = "https://search.openfoodfacts.org/search";
+const FIELDS = "product_name,image_front_small_url";
+const UA = "GroceryApp/1.0 (github.com/abritocenteno/grcr_app)";
+const CACHE = { "Cache-Control": "public, max-age=86400" };
+
+interface OFFHit {
   product_name?: string;
   image_front_small_url?: string;
 }
 
-interface OFFResponse {
-  products?: OFFProduct[];
+interface OFFSearchResult {
+  count?: number;
+  hits?: OFFHit[];
+}
+
+async function searchOFF(query: string, pageSize = 10): Promise<string | null> {
+  const url = new URL(OFF_SEARCH);
+  url.searchParams.set("q", query);
+  url.searchParams.set("fields", FIELDS);
+  url.searchParams.set("page_size", String(pageSize));
+
+  const res = await fetch(url.toString(), {
+    headers: { "User-Agent": UA },
+    next: { revalidate: 86400 },
+  });
+  if (!res.ok) return null;
+
+  const data: OFFSearchResult = await res.json();
+  const match = data.hits?.find((p) => p.image_front_small_url?.trim());
+  return match?.image_front_small_url ?? null;
 }
 
 export async function GET(request: NextRequest) {
-  const q = request.nextUrl.searchParams.get("q");
-  if (!q || !q.trim()) {
+  const q = request.nextUrl.searchParams.get("q")?.trim();
+
+  if (!q) {
     return NextResponse.json({ imgUrl: null });
   }
 
-  const searchTerm = q.trim();
-
   try {
-    const url = new URL("https://world.openfoodfacts.org/cgi/search.pl");
-    url.searchParams.set("search_terms", searchTerm);
-    url.searchParams.set("search_simple", "1");
-    url.searchParams.set("action", "process");
-    url.searchParams.set("json", "1");
-    url.searchParams.set("page_size", "6");
-    url.searchParams.set("fields", "product_name,image_front_small_url");
+    // Primary: search with the exact term
+    let imgUrl = await searchOFF(q);
 
-    const offRes = await fetch(url.toString(), {
-      headers: { "User-Agent": "GroceryApp/1.0 (contact@example.com)" },
-      next: { revalidate: 86400 },
-    });
-
-    if (!offRes.ok) {
-      return NextResponse.json(
-        { imgUrl: null },
-        { headers: { "Cache-Control": "public, max-age=86400" } }
-      );
+    // If no result and the query is a single word, also try English equivalent
+    // (e.g. "melk" → "milk") by just widening the search with more results
+    if (!imgUrl && !q.includes(" ")) {
+      imgUrl = await searchOFF(q, 30);
     }
 
-    const data: OFFResponse = await offRes.json();
-    const match = data.products?.find(
-      (p) => p.image_front_small_url && p.image_front_small_url.trim() !== ""
-    );
-    const imgUrl = match?.image_front_small_url ?? null;
-
-    return NextResponse.json(
-      { imgUrl },
-      { headers: { "Cache-Control": "public, max-age=86400" } }
-    );
-  } catch {
-    return NextResponse.json(
-      { imgUrl: null },
-      { headers: { "Cache-Control": "public, max-age=86400" } }
-    );
+    return NextResponse.json({ imgUrl: imgUrl ?? null }, { headers: CACHE });
+  } catch (err) {
+    console.error("[image-lookup] error:", err);
+    return NextResponse.json({ imgUrl: null }, { headers: CACHE });
   }
 }
