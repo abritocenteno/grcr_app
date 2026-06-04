@@ -7,17 +7,18 @@ const CACHE = { "Cache-Control": "public, max-age=3600" };
 export interface Suggestion {
   name: string;
   imgUrl: string | null;
+  price: number | null;
 }
 
 // AH's own search is already relevance-ranked — just dedupe by name.
-function dedupeAH(results: { name: string; imgUrl: string | null }[]): Suggestion[] {
+function dedupeAH(results: { name: string; imgUrl: string | null; price: number | null }[]): Suggestion[] {
   const seen = new Set<string>();
   const out: Suggestion[] = [];
   for (const r of results) {
     const key = r.name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ name: r.name, imgUrl: r.imgUrl });
+    out.push({ name: r.name, imgUrl: r.imgUrl, price: r.price });
     if (out.length >= 6) break;
   }
   return out;
@@ -37,7 +38,7 @@ function rankAndDedupe(query: string, hits: OFFHit[]): Suggestion[] {
     if (score <= 0) continue; // head term absent → irrelevant, skip
 
     seen.add(key);
-    scored.push({ s: { name, imgUrl: h.image_front_small_url ?? null }, score });
+    scored.push({ s: { name, imgUrl: h.image_front_small_url ?? null, price: null }, score });
   }
 
   return scored

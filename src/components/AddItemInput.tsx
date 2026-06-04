@@ -138,7 +138,12 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
                   </svg>
                 )}
               </div>
-              <span className="text-sm font-medium text-warm-text dark:text-gray-100 truncate">{s.name}</span>
+              <span className="flex-1 text-sm font-medium text-warm-text dark:text-gray-100 truncate">{s.name}</span>
+              {s.price != null && (
+                <span className="flex-shrink-0 text-sm font-bold text-warm-text dark:text-gray-100 tabular-nums">
+                  €{s.price.toFixed(2)}
+                </span>
+              )}
             </button>
           ))}
         </div>
