@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import Image from "next/image";
 import { getStoreColor, storeLabel } from "@/lib/storeColors";
+import { SearchResultsSheet } from "./SearchResultsSheet";
 import type { Suggestion } from "@/app/api/suggestions/route";
 
 interface AddItemInputProps {
@@ -15,6 +16,8 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [allResultsOpen, setAllResultsOpen] = useState(false);
+  const [allResultsQuery, setAllResultsQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,6 +77,14 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") submit();
     if (e.key === "Escape") { setShowDropdown(false); setSuggestions([]); }
+  }
+
+  function openAllResults() {
+    const q = value.trim();
+    if (!q) return;
+    setAllResultsQuery(q);
+    setShowDropdown(false);
+    setAllResultsOpen(true);
   }
 
   return (
@@ -146,8 +157,30 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
               )}
             </button>
           ))}
+
+          {/* View all results */}
+          {suggestions.length > 0 && (
+            <button
+              onPointerDown={(e) => { e.preventDefault(); openAllResults(); }}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-3 border-t border-warm-muted/40 dark:border-gray-700 text-sm font-bold text-warm-text dark:text-gray-100 active:bg-warm-bg dark:active:bg-gray-800 transition-colors"
+              style={{ color: color.bg }}
+            >
+              View all results
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
         </div>
       )}
+
+      <SearchResultsSheet
+        isOpen={allResultsOpen}
+        query={allResultsQuery}
+        store={store}
+        onClose={() => setAllResultsOpen(false)}
+        onAdd={onAdd}
+      />
     </div>
   );
 }

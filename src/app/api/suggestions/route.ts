@@ -11,7 +11,10 @@ export interface Suggestion {
 }
 
 // AH's own search is already relevance-ranked — just dedupe by name.
-function dedupeAH(results: { name: string; imgUrl: string | null; price: number | null }[]): Suggestion[] {
+function dedupeAH(
+  results: { name: string; imgUrl: string | null; price: number | null }[],
+  limit: number
+): Suggestion[] {
   const seen = new Set<string>();
   const out: Suggestion[] = [];
   for (const r of results) {
@@ -19,12 +22,12 @@ function dedupeAH(results: { name: string; imgUrl: string | null; price: number 
     if (seen.has(key)) continue;
     seen.add(key);
     out.push({ name: r.name, imgUrl: r.imgUrl, price: r.price });
-    if (out.length >= 6) break;
+    if (out.length >= limit) break;
   }
   return out;
 }
 
-function rankAndDedupe(query: string, hits: OFFHit[]): Suggestion[] {
+function rankAndDedupe(query: string, hits: OFFHit[], limit: number): Suggestion[] {
   const seen = new Set<string>();
   const scored: Array<{ s: Suggestion; score: number }> = [];
 
@@ -43,13 +46,14 @@ function rankAndDedupe(query: string, hits: OFFHit[]): Suggestion[] {
 
   return scored
     .sort((a, b) => b.score - a.score)
-    .slice(0, 6)
+    .slice(0, limit)
     .map((x) => x.s);
 }
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get("q")?.trim();
   const store = request.nextUrl.searchParams.get("store") ?? "";
+  const limit = Math.min(Math.max(parseInt(request.nextUrl.searchParams.get("limit") ?? "6", 10) || 6, 1), 30);
 
   if (!q || q.length < 2) {
     return NextResponse.json({ suggestions: [] });
@@ -59,8 +63,8 @@ export async function GET(request: NextRequest) {
     // Albert Heijn → real AH inventory. Any failure falls through to OFF.
     if (isAHStore(store)) {
       try {
-        const ah = await searchAH(q, 12);
-        const suggestions = dedupeAH(ah);
+        const ah = await searchAH(q, Math.max(limit, 12));
+        const suggestions = dedupeAH(ah, limit);
         if (suggestions.length > 0) {
           return NextResponse.json({ suggestions }, { headers: CACHE });
         }
@@ -71,12 +75,13 @@ export async function GET(request: NextRequest) {
 
     // All other stores (and AH fallback) → Open Food Facts
     const storeName = STORE_NAME[store];
+    const pageSize = Math.max(limit * 2, 20);
     const [storeHits, genericHits] = await Promise.all([
-      storeName ? fetchOFFHits(q, storeName) : Promise.resolve([]),
-      fetchOFFHits(q),
+      storeName ? fetchOFFHits(q, storeName, pageSize) : Promise.resolve([]),
+      fetchOFFHits(q, undefined, pageSize),
     ]);
 
-    const suggestions = rankAndDedupe(q, [...storeHits, ...genericHits]);
+    const suggestions = rankAndDedupe(q, [...storeHits, ...genericHits], limit);
 
     return NextResponse.json({ suggestions }, { headers: CACHE });
   } catch (err) {
