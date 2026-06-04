@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { STORE_NAME, OFFHit, fetchOFFHits, relevance } from "@/lib/offSearch";
+import { isAHStore, searchAH } from "@/lib/ahApi";
 
 const CACHE = { "Cache-Control": "public, max-age=3600" };
 
 export interface Suggestion {
   name: string;
   imgUrl: string | null;
+}
+
+// AH's own search is already relevance-ranked — just dedupe by name.
+function dedupeAH(results: { name: string; imgUrl: string | null }[]): Suggestion[] {
+  const seen = new Set<string>();
+  const out: Suggestion[] = [];
+  for (const r of results) {
+    const key = r.name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ name: r.name, imgUrl: r.imgUrl });
+    if (out.length >= 6) break;
+  }
+  return out;
 }
 
 function rankAndDedupe(query: string, hits: OFFHit[]): Suggestion[] {
@@ -40,8 +55,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const storeName = STORE_NAME[store];
+    // Albert Heijn → real AH inventory. Any failure falls through to OFF.
+    if (isAHStore(store)) {
+      try {
+        const ah = await searchAH(q, 12);
+        const suggestions = dedupeAH(ah);
+        if (suggestions.length > 0) {
+          return NextResponse.json({ suggestions }, { headers: CACHE });
+        }
+      } catch (e) {
+        console.warn("[suggestions] AH failed, falling back to OFF:", e);
+      }
+    }
 
+    // All other stores (and AH fallback) → Open Food Facts
+    const storeName = STORE_NAME[store];
     const [storeHits, genericHits] = await Promise.all([
       storeName ? fetchOFFHits(q, storeName) : Promise.resolve([]),
       fetchOFFHits(q),

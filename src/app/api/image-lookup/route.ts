@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { STORE_NAME, OFFHit, fetchOFFHits, relevance } from "@/lib/offSearch";
+import { isAHStore, searchAH } from "@/lib/ahApi";
 
 const CACHE = { "Cache-Control": "public, max-age=86400" };
 
@@ -24,6 +25,17 @@ export async function GET(request: NextRequest) {
   if (!q) return NextResponse.json({ imgUrl: null });
 
   try {
+    // Albert Heijn → real AH product photo. Any failure falls through to OFF.
+    if (isAHStore(store)) {
+      try {
+        const ah = await searchAH(q, 10);
+        const hit = ah.find((r) => r.imgUrl);
+        if (hit?.imgUrl) return NextResponse.json({ imgUrl: hit.imgUrl }, { headers: CACHE });
+      } catch (e) {
+        console.warn("[image-lookup] AH failed, falling back to OFF:", e);
+      }
+    }
+
     const storeName = STORE_NAME[store];
 
     // 1. Store-specific search first
