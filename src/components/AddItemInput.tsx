@@ -183,7 +183,11 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
         isOpen={allResultsOpen}
         query={allResultsQuery}
         store={store}
-        onClose={() => setAllResultsOpen(false)}
+        onClose={() => {
+          setAllResultsOpen(false);
+          setValue("");
+          setSuggestions([]);
+        }}
         onAdd={onAdd}
       />
     </div>
