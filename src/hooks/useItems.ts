@@ -24,8 +24,8 @@ export function useItems(listId: Id<"lists"> | null) {
   return {
     items: items ?? [],
     isLoading: items === undefined,
-    addItem: (name: string, store: string) =>
-      listId ? addItemMutation({ listId, name, store }) : Promise.resolve(null),
+    addItem: (name: string, store: string, imgUrl?: string) =>
+      listId ? addItemMutation({ listId, name, store, imgUrl }) : Promise.resolve(null),
     deleteItem: (itemId: Id<"items">) => deleteItemMutation({ itemId }),
     toggleDone: (itemId: Id<"items">) => toggleDoneMutation({ itemId }),
     changeQty: (itemId: Id<"items">, delta: -1 | 1) => changeQtyMutation({ itemId, delta }),

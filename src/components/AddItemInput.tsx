@@ -7,7 +7,7 @@ import { SearchResultsSheet } from "./SearchResultsSheet";
 import type { Suggestion } from "@/app/api/suggestions/route";
 
 interface AddItemInputProps {
-  onAdd: (name: string) => void;
+  onAdd: (name: string, imgUrl?: string | null) => void;
   store: string;
 }
 
@@ -64,10 +64,10 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
-  function submit(name?: string) {
+  function submit(name?: string, imgUrl?: string | null) {
     const trimmed = (name ?? value).trim();
     if (!trimmed) return;
-    onAdd(trimmed);
+    onAdd(trimmed, imgUrl);
     setValue("");
     setSuggestions([]);
     setShowDropdown(false);
@@ -137,7 +137,7 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
           {suggestions.map((s, i) => (
             <button
               key={i}
-              onPointerDown={(e) => { e.preventDefault(); submit(s.name); }}
+              onPointerDown={(e) => { e.preventDefault(); submit(s.name, s.imgUrl); }}
               className="w-full flex items-center gap-3 px-3 py-2.5 active:bg-warm-bg dark:active:bg-gray-800 transition-colors text-left"
             >
               <div className="w-8 h-8 rounded-lg bg-warm-bg dark:bg-gray-800 flex-shrink-0 overflow-hidden flex items-center justify-center">

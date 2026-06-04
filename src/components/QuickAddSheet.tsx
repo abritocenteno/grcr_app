@@ -43,7 +43,10 @@ export function QuickAddSheet({ item, lists, onClose }: QuickAddSheetProps) {
     if (!name.trim() || !selectedListId || !effectiveStore) return;
     setAdding(true);
     try {
-      await addItem({ listId: selectedListId as any, name: name.trim(), store: effectiveStore });
+      // Use the suggestion's image only if the name wasn't edited away from it.
+      const imgUrl =
+        item && name.trim() === item.name && item.imgUrl ? item.imgUrl : undefined;
+      await addItem({ listId: selectedListId as any, name: name.trim(), store: effectiveStore, imgUrl });
       onClose();
     } catch {
       setAdding(false);

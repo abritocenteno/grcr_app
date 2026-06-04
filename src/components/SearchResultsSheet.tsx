@@ -11,7 +11,7 @@ interface SearchResultsSheetProps {
   query: string;
   store: string;
   onClose: () => void;
-  onAdd: (name: string) => void;
+  onAdd: (name: string, imgUrl?: string | null) => void;
 }
 
 function PlaceholderIcon() {
@@ -43,9 +43,9 @@ export function SearchResultsSheet({ isOpen, query, store, onClose, onAdd }: Sea
     return () => ctrl.abort();
   }, [isOpen, query, store]);
 
-  function handleAdd(name: string) {
+  function handleAdd(name: string, imgUrl: string | null) {
     if (added.has(name)) return;
-    onAdd(name);
+    onAdd(name, imgUrl);
     setAdded((prev) => new Set(prev).add(name));
   }
 
@@ -80,7 +80,7 @@ export function SearchResultsSheet({ isOpen, query, store, onClose, onAdd }: Sea
               return (
                 <button
                   key={i}
-                  onClick={() => handleAdd(r.name)}
+                  onClick={() => handleAdd(r.name, r.imgUrl)}
                   className={[
                     "relative flex flex-col rounded-2xl overflow-hidden text-left",
                     "bg-warm-bg dark:bg-gray-800 transition-all duration-150",

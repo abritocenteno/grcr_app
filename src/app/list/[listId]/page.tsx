@@ -191,7 +191,7 @@ export default function ListPage() {
           countMap={countMap}
         />
 
-        <AddItemInput onAdd={(name) => addItem(name, activeStore)} store={activeStore} />
+        <AddItemInput onAdd={(name, imgUrl) => addItem(name, activeStore, imgUrl ?? undefined)} store={activeStore} />
       </header>
 
       {/* Items */}

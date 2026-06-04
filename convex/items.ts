@@ -52,16 +52,22 @@ export const addItem = mutation({
     listId: v.id("lists"),
     name: v.string(),
     store: v.string(),
+    imgUrl: v.optional(v.string()), // exact image when picked from a search result
   },
-  handler: async (ctx, { listId, name, store }) => {
+  handler: async (ctx, { listId, name, store, imgUrl }) => {
     await canAccessList(ctx, listId);
+    // If the caller already knows the image (picked a specific product), store
+    // it directly as "done" so we don't re-derive a possibly-wrong image from
+    // the name. Typed-in items have no image yet → "idle" triggers a lookup.
+    const hasImg = typeof imgUrl === "string" && imgUrl.trim() !== "";
     return await ctx.db.insert("items", {
       listId,
       store,
       name: name.trim(),
       qty: 1,
       done: false,
-      imgStatus: "idle",
+      imgUrl: hasImg ? imgUrl : undefined,
+      imgStatus: hasImg ? "done" : "idle",
       createdAt: Date.now(),
     });
   },
