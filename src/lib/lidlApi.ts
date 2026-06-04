@@ -67,19 +67,21 @@ export async function searchLidl(query: string, size = 24): Promise<LidlResult[]
     .filter((r) => r.name);
 }
 
-// Rank by title relevance (head term must appear -> drops appliances for a
-// food search), with a small boost for items in a food category.
-export function rankLidl(query: string, results: LidlResult[]): LidlResult[] {
-  const scored = results
-    .map((r, idx) => {
-      let score = relevance(query, r.name);
-      if (score > 0 && /eten|drinken|voeding|zuivel|brood|vlees|groente|fruit/i.test(r.category)) {
-        score += 0.3;
-      }
-      return { r, score, idx };
-    })
-    .filter((s) => s.score > 0);
+// Lidl tags every grocery with category exactly "Food"; non-food gets a path
+// like "Assortiment/Keuken & Huishouden/…". So hard-drop non-food, then SOFT-
+// rank: items whose title matches the query lead, but other Food items are
+// kept (in Lidl's native order) — so e.g. "OLD AMSTERDAM" survives a "kaas"
+// search even though its title lacks the word "kaas".
+function isFood(category: string): boolean {
+  const c = category.trim().toLowerCase();
+  return c === "food" || /eten|drinken|voeding|zuivel/.test(c);
+}
 
+export function rankLidl(query: string, results: LidlResult[]): LidlResult[] {
+  const food = results.filter((r) => isFood(r.category));
+  if (food.length === 0) return [];
+
+  const scored = food.map((r, idx) => ({ r, score: relevance(query, r.name), idx }));
   scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
   return scored.map((s) => s.r);
 }
