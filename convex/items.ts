@@ -83,6 +83,21 @@ export const toggleDone = mutation({
   },
 });
 
+export const deleteByStore = mutation({
+  args: { listId: v.id("lists"), store: v.string() },
+  handler: async (ctx, { listId, store }) => {
+    await canAccessList(ctx, listId);
+    const key = store.toLowerCase().trim();
+    const items = await ctx.db
+      .query("items")
+      .withIndex("by_list", (q: any) => q.eq("listId", listId))
+      .collect();
+    const toDelete = items.filter((i: any) => i.store.toLowerCase().trim() === key);
+    await Promise.all(toDelete.map((i: any) => ctx.db.delete(i._id)));
+    return toDelete.length;
+  },
+});
+
 export const changeQty = mutation({
   args: { itemId: v.id("items"), delta: v.union(v.literal(-1), v.literal(1)) },
   handler: async (ctx, { itemId, delta }) => {

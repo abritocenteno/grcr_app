@@ -1,52 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+import { STORE_NAME, OFFHit, fetchOFFHits, relevance } from "@/lib/offSearch";
 
-const OFF_SEARCH = "https://search.openfoodfacts.org/search";
-const UA = "GroceryApp/1.0 (github.com/abritocenteno/grcr_app)";
 const CACHE = { "Cache-Control": "public, max-age=3600" };
-
-const STORE_NAME: Record<string, string> = {
-  ah: "Albert Heijn",
-  lidl: "Lidl",
-};
 
 export interface Suggestion {
   name: string;
   imgUrl: string | null;
 }
 
-interface OFFHit {
-  product_name?: string;
-  image_front_small_url?: string;
-}
-
-async function fetchSuggestions(q: string, store?: string): Promise<Suggestion[]> {
-  const luceneQ = store ? `${q} AND stores:"${store}"` : q;
-  const url = new URL(OFF_SEARCH);
-  url.searchParams.set("q", luceneQ);
-  url.searchParams.set("fields", "product_name,image_front_small_url");
-  url.searchParams.set("page_size", "8");
-
-  const res = await fetch(url.toString(), {
-    headers: { "User-Agent": UA },
-    next: { revalidate: 3600 },
-  });
-  if (!res.ok) return [];
-
-  const data: { hits?: OFFHit[] } = await res.json();
+function rankAndDedupe(query: string, hits: OFFHit[]): Suggestion[] {
   const seen = new Set<string>();
+  const scored: Array<{ s: Suggestion; score: number }> = [];
 
-  return (data.hits ?? [])
-    .filter((p) => {
-      const name = p.product_name?.trim();
-      if (!name || seen.has(name.toLowerCase())) return false;
-      seen.add(name.toLowerCase());
-      return true;
-    })
+  for (const h of hits) {
+    const name = h.product_name?.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+
+    const score = relevance(query, name);
+    if (score <= 0) continue; // head term absent → irrelevant, skip
+
+    seen.add(key);
+    scored.push({ s: { name, imgUrl: h.image_front_small_url ?? null }, score });
+  }
+
+  return scored
+    .sort((a, b) => b.score - a.score)
     .slice(0, 6)
-    .map((p) => ({
-      name: p.product_name!.trim(),
-      imgUrl: p.image_front_small_url ?? null,
-    }));
+    .map((x) => x.s);
 }
 
 export async function GET(request: NextRequest) {
@@ -59,20 +41,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const storeName = STORE_NAME[store];
-    let suggestions: Suggestion[] = [];
 
-    // Try store-specific first (better results for AH especially)
-    if (storeName) {
-      suggestions = await fetchSuggestions(q, storeName);
-    }
+    const [storeHits, genericHits] = await Promise.all([
+      storeName ? fetchOFFHits(q, storeName) : Promise.resolve([]),
+      fetchOFFHits(q),
+    ]);
 
-    // If too few store-specific results, add generic results
-    if (suggestions.length < 3) {
-      const generic = await fetchSuggestions(q);
-      const existingNames = new Set(suggestions.map((s) => s.name.toLowerCase()));
-      const extras = generic.filter((s) => !existingNames.has(s.name.toLowerCase()));
-      suggestions = [...suggestions, ...extras].slice(0, 6);
-    }
+    const suggestions = rankAndDedupe(q, [...storeHits, ...genericHits]);
 
     return NextResponse.json({ suggestions }, { headers: CACHE });
   } catch (err) {

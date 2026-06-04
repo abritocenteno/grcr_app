@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import { useList } from "@/hooks/useList";
 import { useItems } from "@/hooks/useItems";
 import { useGroups } from "@/hooks/useGroups";
@@ -13,6 +14,7 @@ import { ItemCardGrid } from "@/components/ItemCardGrid";
 import { ListFooter } from "@/components/ListFooter";
 import { ViewToggle, ViewMode } from "@/components/ViewToggle";
 import { ShareSheet } from "@/components/ShareSheet";
+import { storeLabel } from "@/lib/storeColors";
 import { Id } from "../../../../convex/_generated/dataModel";
 
 const DEFAULT_STORES = ["lidl", "ah"];
@@ -56,7 +58,6 @@ export default function ListPage() {
 
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const [activeStore, setActiveStore] = useState<string>("lidl");
-  const [stores, setStores] = useState<string[]>(DEFAULT_STORES);
   const [view, setView] = useState<ViewMode>("grid");
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -66,16 +67,26 @@ export default function ListPage() {
     useItems(isAuthenticated ? listId : null);
   const { groups } = useGroups();
 
-  // Derive store tabs from actual item data, merged with local state
+  const setStoresMutation = useMutation(api.lists.setStores);
+  const deleteByStore = useMutation(api.items.deleteByStore);
+
+  // Stores = persisted list.stores (or defaults) unioned with any store that
+  // currently has items (so removing never orphans items off-screen).
+  const persistedStores = list?.stores ?? DEFAULT_STORES;
+  const itemStores = [...new Set(allItems.map((i) => i.store))];
+  const stores = [
+    ...persistedStores,
+    ...itemStores.filter(
+      (s) => !persistedStores.some((p) => p.toLowerCase() === s.toLowerCase())
+    ),
+  ];
+
+  // Keep activeStore valid — fall back to first tab if current one disappears
   useEffect(() => {
-    if (allItems.length > 0) {
-      const itemStores = [...new Set(allItems.map((i) => i.store))];
-      setStores((prev) => {
-        const combined = [...new Set([...prev, ...itemStores])];
-        return combined;
-      });
+    if (stores.length > 0 && !stores.some((s) => s.toLowerCase() === activeStore.toLowerCase())) {
+      setActiveStore(stores[0]);
     }
-  }, [allItems]);
+  }, [stores, activeStore]);
 
   useEffect(() => {
     const saved = localStorage.getItem("grocery-view") as ViewMode | null;
@@ -89,11 +100,25 @@ export default function ListPage() {
 
   function handleAddStore(name: string) {
     const key = name.trim();
-    if (!key) return;
-    setStores((prev) =>
-      prev.map((s) => s.toLowerCase()).includes(key.toLowerCase()) ? prev : [...prev, key]
-    );
+    if (!key || stores.some((s) => s.toLowerCase() === key.toLowerCase())) return;
+    setStoresMutation({ listId, stores: [...stores, key] });
     setActiveStore(key);
+  }
+
+  async function handleRemoveStore(store: string) {
+    const count = allItems.filter(
+      (i) => i.store.toLowerCase() === store.toLowerCase()
+    ).length;
+    if (count > 0) {
+      const ok = window.confirm(
+        `Remove "${storeLabel(store)}"? This will delete ${count} item${count !== 1 ? "s" : ""} in it.`
+      );
+      if (!ok) return;
+      await deleteByStore({ listId, store });
+    }
+    const remaining = stores.filter((s) => s.toLowerCase() !== store.toLowerCase());
+    await setStoresMutation({ listId, stores: remaining });
+    if (remaining.length > 0) setActiveStore(remaining[0]);
   }
 
   useEffect(() => {
@@ -162,6 +187,7 @@ export default function ListPage() {
           activeStore={activeStore}
           onSwitch={setActiveStore}
           onAddStore={handleAddStore}
+          onRemoveStore={handleRemoveStore}
           countMap={countMap}
         />
 

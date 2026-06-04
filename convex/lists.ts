@@ -120,6 +120,25 @@ export const createList = mutation({
   },
 });
 
+export const setStores = mutation({
+  args: { listId: v.id("lists"), stores: v.array(v.string()) },
+  handler: async (ctx, { listId, stores }) => {
+    await canAccessList(ctx, listId);
+    // Normalise: trim, drop blanks, dedupe (case-insensitive, keep first form)
+    const seen = new Set<string>();
+    const cleaned: string[] = [];
+    for (const s of stores) {
+      const t = s.trim();
+      const key = t.toLowerCase();
+      if (t && !seen.has(key)) {
+        seen.add(key);
+        cleaned.push(t);
+      }
+    }
+    await ctx.db.patch(listId, { stores: cleaned });
+  },
+});
+
 export const renameList = mutation({
   args: { listId: v.id("lists"), name: v.string() },
   handler: async (ctx, { listId, name }) => {

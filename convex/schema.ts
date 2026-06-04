@@ -6,6 +6,7 @@ export default defineSchema({
     ownerId: v.string(),
     name: v.string(),
     groupId: v.optional(v.id("groups")),
+    stores: v.optional(v.array(v.string())),
     createdAt: v.number(),
   })
     .index("by_owner", ["ownerId"])

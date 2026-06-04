@@ -1,28 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { STORE_NAME, OFFHit, fetchOFFHits, relevance } from "@/lib/offSearch";
 
-const OFF_SEARCH = "https://search.openfoodfacts.org/search";
-const UA = "GroceryApp/1.0 (github.com/abritocenteno/grcr_app)";
 const CACHE = { "Cache-Control": "public, max-age=86400" };
 
-const STORE_NAME: Record<string, string> = {
-  ah: "Albert Heijn",
-  lidl: "Lidl",
-};
-
-async function queryOFF(q: string, pageSize = 8): Promise<string | null> {
-  const url = new URL(OFF_SEARCH);
-  url.searchParams.set("q", q);
-  url.searchParams.set("fields", "product_name,image_front_small_url");
-  url.searchParams.set("page_size", String(pageSize));
-
-  const res = await fetch(url.toString(), {
-    headers: { "User-Agent": UA },
-    next: { revalidate: 86400 },
-  });
-  if (!res.ok) return null;
-
-  const data: { hits?: Array<{ image_front_small_url?: string }> } = await res.json();
-  return data.hits?.find((p) => p.image_front_small_url?.trim())?.image_front_small_url ?? null;
+// Pick the best-scoring hit that actually has an image.
+function bestImage(query: string, hits: OFFHit[]): string | null {
+  let best: { url: string; score: number } | null = null;
+  for (const h of hits) {
+    const url = h.image_front_small_url?.trim();
+    const name = h.product_name?.trim();
+    if (!url || !name) continue;
+    const score = relevance(query, name);
+    if (score <= 0) continue; // irrelevant — don't attach a wrong image
+    if (!best || score > best.score) best = { url, score };
+  }
+  return best?.url ?? null;
 }
 
 export async function GET(request: NextRequest) {
@@ -34,15 +26,16 @@ export async function GET(request: NextRequest) {
   try {
     const storeName = STORE_NAME[store];
 
-    // 1. Try store-specific Lucene query first
+    // 1. Store-specific search first
     if (storeName) {
-      const storeQuery = `${q} AND stores:"${storeName}"`;
-      const imgUrl = await queryOFF(storeQuery, 10);
+      const hits = await fetchOFFHits(q, storeName);
+      const imgUrl = bestImage(q, hits);
       if (imgUrl) return NextResponse.json({ imgUrl }, { headers: CACHE });
     }
 
-    // 2. Generic fallback (no store filter)
-    const imgUrl = await queryOFF(q, 10);
+    // 2. Generic fallback
+    const hits = await fetchOFFHits(q);
+    const imgUrl = bestImage(q, hits);
     return NextResponse.json({ imgUrl: imgUrl ?? null }, { headers: CACHE });
   } catch (err) {
     console.error("[image-lookup]", err);

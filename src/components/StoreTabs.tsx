@@ -8,10 +8,11 @@ interface StoreTabsProps {
   activeStore: string;
   onSwitch: (store: string) => void;
   onAddStore: (store: string) => void;
+  onRemoveStore: (store: string) => void;
   countMap: Record<string, number>;    // unchecked item count per store
 }
 
-export function StoreTabs({ stores, activeStore, onSwitch, onAddStore, countMap }: StoreTabsProps) {
+export function StoreTabs({ stores, activeStore, onSwitch, onAddStore, onRemoveStore, countMap }: StoreTabsProps) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,9 +48,10 @@ export function StoreTabs({ stores, activeStore, onSwitch, onAddStore, countMap 
             key={store}
             onClick={() => onSwitch(store)}
             className={[
-              "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold",
+              "flex items-center gap-2 pl-4 py-2.5 rounded-2xl text-sm font-semibold",
               "transition-all duration-150 select-none min-h-[44px] flex-shrink-0",
               "shadow-card",
+              isActive ? "pr-2" : "pr-4",
             ].join(" ")}
             style={
               isActive
@@ -73,6 +75,24 @@ export function StoreTabs({ stores, activeStore, onSwitch, onAddStore, countMap 
             >
               {count}
             </span>
+            {/* Remove button — only on the active tab */}
+            {isActive && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); onRemoveStore(store); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); onRemoveStore(store); }
+                }}
+                className="flex items-center justify-center w-5 h-5 rounded-full bg-white/25 active:bg-white/40 transition-colors"
+                style={{ color: color.text }}
+                aria-label={`Remove ${label}`}
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </span>
+            )}
           </button>
         );
       })}
