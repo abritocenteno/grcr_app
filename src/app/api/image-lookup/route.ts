@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { STORE_NAME, OFFHit, fetchOFFHits, relevance } from "@/lib/offSearch";
+import { STORE_NAME, OFFHit, fetchOFFHits, relevance, sharesToken } from "@/lib/offSearch";
 import { isAHStore, searchAH, rankAH } from "@/lib/ahApi";
 import { isLidlStore, searchLidl, rankLidl } from "@/lib/lidlApi";
 
@@ -30,7 +30,9 @@ export async function GET(request: NextRequest) {
     if (isAHStore(store)) {
       try {
         const ah = rankAH(q, await searchAH(q, 15));
-        const hit = ah.find((r) => r.imgUrl);
+        // Only attach an image whose product actually matches the query —
+        // never a wholly-unrelated product's photo.
+        const hit = ah.find((r) => r.imgUrl && sharesToken(q, r.name));
         if (hit?.imgUrl) return NextResponse.json({ imgUrl: hit.imgUrl }, { headers: CACHE });
       } catch (e) {
         console.warn("[image-lookup] AH failed, falling back to OFF:", e);
@@ -41,7 +43,9 @@ export async function GET(request: NextRequest) {
     if (isLidlStore(store)) {
       try {
         const lidl = rankLidl(q, await searchLidl(q, 24));
-        const hit = lidl.find((r) => r.imgUrl);
+        // Only attach an image whose product actually matches the query
+        // (kills e.g. a sausage photo for "kastanje champignons").
+        const hit = lidl.find((r) => r.imgUrl && sharesToken(q, r.name));
         if (hit?.imgUrl) return NextResponse.json({ imgUrl: hit.imgUrl }, { headers: CACHE });
       } catch (e) {
         console.warn("[image-lookup] Lidl failed, falling back to OFF:", e);
