@@ -14,6 +14,14 @@ const nextConfig = {
         protocol: "https",
         hostname: "static.ah.nl",
       },
+      {
+        protocol: "https",
+        hostname: "www.lidl.nl",
+      },
+      {
+        protocol: "https",
+        hostname: "**.assets.schwarz",
+      },
     ],
   },
 };

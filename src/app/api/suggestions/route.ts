@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { STORE_NAME, OFFHit, fetchOFFHits, relevance } from "@/lib/offSearch";
-import { isAHStore, searchAH, rankAH, AHResult } from "@/lib/ahApi";
+import { isAHStore, searchAH, rankAH } from "@/lib/ahApi";
+import { isLidlStore, searchLidl, rankLidl } from "@/lib/lidlApi";
 
 const CACHE = { "Cache-Control": "public, max-age=3600" };
 
@@ -11,8 +12,11 @@ export interface Suggestion {
   unit: string | null;
 }
 
-// Dedupe AH results by name (already re-ranked by rankAH upstream).
-function dedupeAH(results: AHResult[], limit: number): Suggestion[] {
+// Dedupe store results by name (already re-ranked upstream).
+function dedupeStore(
+  results: { name: string; imgUrl: string | null; price: number | null; unit: string | null }[],
+  limit: number
+): Suggestion[] {
   const seen = new Set<string>();
   const out: Suggestion[] = [];
   for (const r of results) {
@@ -62,12 +66,25 @@ export async function GET(request: NextRequest) {
     if (isAHStore(store)) {
       try {
         const ah = rankAH(q, await searchAH(q, Math.max(limit, 12)));
-        const suggestions = dedupeAH(ah, limit);
+        const suggestions = dedupeStore(ah, limit);
         if (suggestions.length > 0) {
           return NextResponse.json({ suggestions }, { headers: CACHE });
         }
       } catch (e) {
         console.warn("[suggestions] AH failed, falling back to OFF:", e);
+      }
+    }
+
+    // Lidl → real Lidl NL inventory. Any failure falls through to OFF.
+    if (isLidlStore(store)) {
+      try {
+        const lidl = rankLidl(q, await searchLidl(q, Math.max(limit * 2, 24)));
+        const suggestions = dedupeStore(lidl, limit);
+        if (suggestions.length > 0) {
+          return NextResponse.json({ suggestions }, { headers: CACHE });
+        }
+      } catch (e) {
+        console.warn("[suggestions] Lidl failed, falling back to OFF:", e);
       }
     }
 

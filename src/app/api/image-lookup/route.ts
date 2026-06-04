@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { STORE_NAME, OFFHit, fetchOFFHits, relevance } from "@/lib/offSearch";
 import { isAHStore, searchAH, rankAH } from "@/lib/ahApi";
+import { isLidlStore, searchLidl, rankLidl } from "@/lib/lidlApi";
 
 const CACHE = { "Cache-Control": "public, max-age=86400" };
 
@@ -33,6 +34,17 @@ export async function GET(request: NextRequest) {
         if (hit?.imgUrl) return NextResponse.json({ imgUrl: hit.imgUrl }, { headers: CACHE });
       } catch (e) {
         console.warn("[image-lookup] AH failed, falling back to OFF:", e);
+      }
+    }
+
+    // Lidl → real Lidl NL product photo. Any failure falls through to OFF.
+    if (isLidlStore(store)) {
+      try {
+        const lidl = rankLidl(q, await searchLidl(q, 24));
+        const hit = lidl.find((r) => r.imgUrl);
+        if (hit?.imgUrl) return NextResponse.json({ imgUrl: hit.imgUrl }, { headers: CACHE });
+      } catch (e) {
+        console.warn("[image-lookup] Lidl failed, falling back to OFF:", e);
       }
     }
 
