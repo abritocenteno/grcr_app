@@ -4,6 +4,8 @@
 // notice (the X-Application requirement appeared after public gists were
 // written). Callers MUST treat failures as non-fatal and fall back to OFF.
 
+import { tokenize } from "./offSearch";
+
 const AUTH_URL = "https://api.ah.nl/mobile-auth/v1/auth/token/anonymous";
 const SEARCH_URL = "https://api.ah.nl/mobile-services/product/search/v2";
 
@@ -33,6 +35,7 @@ export interface AHResult {
   name: string;
   imgUrl: string | null;
   price: number | null;
+  unit: string | null; // e.g. "6 x 0,33 l" — distinguishes can vs bottle
 }
 
 // In-memory token cache (per server instance). Token lives ~2h.
@@ -92,7 +95,71 @@ export async function searchAH(query: string, size = 12): Promise<AHResult[]> {
       name: p.title!.trim(),
       imgUrl: pickImage(p.images),
       price: p.currentPrice ?? p.priceBeforeBonus ?? null,
+      unit: p.salesUnitSize ?? null,
     }));
+}
+
+// --- Client-side re-ranking -------------------------------------------------
+// AH's RELEVANCE sort weights pack-size heavily and ignores packaging words
+// like "blik" (can) / "fles" (bottle) — the can/bottle distinction lives in
+// the volume (0,33 l = can, 1 l / 1,5 l = bottle), not the title. We re-rank
+// so the product the user actually described floats to the top.
+
+const CAN_WORDS = ["blik", "blikje", "blikjes", "can", "cans"];
+const BOTTLE_WORDS = ["fles", "flesje", "flesjes", "bottle", "pet"];
+const PACK_NOISE = new Set([
+  "pack", "sixpack", "stuks", "stuk", "tray", "x",
+  ...CAN_WORDS, ...BOTTLE_WORDS,
+]);
+
+// First volume mention in liters, e.g. "6 x 0,33 l" -> 0.33, "330 ml" -> 0.33
+function parseVolumeLiters(text: string): number | null {
+  const m = text.toLowerCase().match(/(\d+(?:[.,]\d+)?)\s*(ml|cl|l)\b/);
+  if (!m) return null;
+  let v = parseFloat(m[1].replace(",", "."));
+  if (m[2] === "ml") v /= 1000;
+  else if (m[2] === "cl") v /= 100;
+  return v;
+}
+
+export function rankAH(query: string, results: AHResult[]): AHResult[] {
+  const qWords = tokenize(query);
+  const wantCan = qWords.some((w) => CAN_WORDS.includes(w));
+  const wantBottle = qWords.some((w) => BOTTLE_WORDS.includes(w));
+  // Product/brand words to match against titles (drop pack words & bare numbers)
+  const contentWords = qWords.filter(
+    (w) => w.length >= 2 && !PACK_NOISE.has(w) && !/^\d+$/.test(w)
+  );
+
+  const scored = results.map((r, idx) => {
+    const titleLower = r.name.toLowerCase();
+    const titleTokens = new Set(tokenize(r.name));
+    let matched = 0;
+    for (const w of contentWords) {
+      if (titleTokens.has(w) || (w.length >= 4 && titleLower.includes(w))) matched++;
+    }
+    let score = contentWords.length ? matched / contentWords.length : 0;
+
+    const haystack = `${titleLower} ${(r.unit ?? "").toLowerCase()}`;
+    const vol = parseVolumeLiters(haystack);
+    if (wantCan) {
+      if (/blik/.test(haystack)) score += 0.5;
+      else if (vol !== null && vol <= 0.5) score += 0.4;
+      else if (vol !== null && vol > 0.5) score -= 0.4;
+      else if (/fles|pet/.test(haystack)) score -= 0.5;
+    } else if (wantBottle) {
+      if (/fles|pet/.test(haystack)) score += 0.5;
+      else if (vol !== null && vol > 0.5) score += 0.4;
+      else if (vol !== null && vol <= 0.5) score -= 0.4;
+      else if (/blik/.test(haystack)) score -= 0.5;
+    }
+
+    return { r, score, idx };
+  });
+
+  // Sort by score desc; stable on AH's original order for ties.
+  scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
+  return scored.map((s) => s.r);
 }
 
 // Which store keys should be served by the AH backend.

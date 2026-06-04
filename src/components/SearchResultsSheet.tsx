@@ -117,11 +117,16 @@ export function SearchResultsSheet({ isOpen, query, store, onClose, onAdd }: Sea
                     <p className="text-xs font-semibold text-warm-text dark:text-gray-100 leading-tight line-clamp-2">
                       {r.name}
                     </p>
-                    {r.price != null && (
-                      <p className="text-xs font-bold text-warm-text dark:text-gray-100 mt-0.5 tabular-nums">
-                        €{r.price.toFixed(2)}
-                      </p>
-                    )}
+                    <div className="flex items-baseline justify-between gap-1 mt-0.5">
+                      {r.unit && (
+                        <span className="text-[11px] text-warm-subtle dark:text-gray-500 truncate">{r.unit}</span>
+                      )}
+                      {r.price != null && (
+                        <span className="text-xs font-bold text-warm-text dark:text-gray-100 tabular-nums flex-shrink-0 ml-auto">
+                          €{r.price.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               );

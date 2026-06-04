@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { STORE_NAME, OFFHit, fetchOFFHits, relevance } from "@/lib/offSearch";
-import { isAHStore, searchAH } from "@/lib/ahApi";
+import { isAHStore, searchAH, rankAH, AHResult } from "@/lib/ahApi";
 
 const CACHE = { "Cache-Control": "public, max-age=3600" };
 
@@ -8,20 +8,18 @@ export interface Suggestion {
   name: string;
   imgUrl: string | null;
   price: number | null;
+  unit: string | null;
 }
 
-// AH's own search is already relevance-ranked — just dedupe by name.
-function dedupeAH(
-  results: { name: string; imgUrl: string | null; price: number | null }[],
-  limit: number
-): Suggestion[] {
+// Dedupe AH results by name (already re-ranked by rankAH upstream).
+function dedupeAH(results: AHResult[], limit: number): Suggestion[] {
   const seen = new Set<string>();
   const out: Suggestion[] = [];
   for (const r of results) {
     const key = r.name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ name: r.name, imgUrl: r.imgUrl, price: r.price });
+    out.push({ name: r.name, imgUrl: r.imgUrl, price: r.price, unit: r.unit });
     if (out.length >= limit) break;
   }
   return out;
@@ -41,7 +39,7 @@ function rankAndDedupe(query: string, hits: OFFHit[], limit: number): Suggestion
     if (score <= 0) continue; // head term absent → irrelevant, skip
 
     seen.add(key);
-    scored.push({ s: { name, imgUrl: h.image_front_small_url ?? null, price: null }, score });
+    scored.push({ s: { name, imgUrl: h.image_front_small_url ?? null, price: null, unit: null }, score });
   }
 
   return scored
@@ -63,7 +61,7 @@ export async function GET(request: NextRequest) {
     // Albert Heijn → real AH inventory. Any failure falls through to OFF.
     if (isAHStore(store)) {
       try {
-        const ah = await searchAH(q, Math.max(limit, 12));
+        const ah = rankAH(q, await searchAH(q, Math.max(limit, 12)));
         const suggestions = dedupeAH(ah, limit);
         if (suggestions.length > 0) {
           return NextResponse.json({ suggestions }, { headers: CACHE });

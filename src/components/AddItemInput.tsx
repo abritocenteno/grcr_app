@@ -149,7 +149,12 @@ export function AddItemInput({ onAdd, store }: AddItemInputProps) {
                   </svg>
                 )}
               </div>
-              <span className="flex-1 text-sm font-medium text-warm-text dark:text-gray-100 truncate">{s.name}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-medium text-warm-text dark:text-gray-100 truncate">{s.name}</span>
+                {s.unit && (
+                  <span className="block text-xs text-warm-subtle dark:text-gray-500 truncate">{s.unit}</span>
+                )}
+              </span>
               {s.price != null && (
                 <span className="flex-shrink-0 text-sm font-bold text-warm-text dark:text-gray-100 tabular-nums">
                   €{s.price.toFixed(2)}
