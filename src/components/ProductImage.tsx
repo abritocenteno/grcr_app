@@ -4,6 +4,7 @@ import Image from "next/image";
 import { GroceryItem } from "@/types";
 import { useProductImage } from "@/hooks/useProductImage";
 import { categoryForName } from "@/lib/categoryIcon";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 interface ProductImageProps {
   item: GroceryItem;
@@ -58,9 +59,7 @@ export function ProductImage({ item }: ProductImageProps) {
       aria-label={category.label}
       title={category.label}
     >
-      <span className="text-2xl leading-none select-none" aria-hidden="true">
-        {category.emoji}
-      </span>
+      <CategoryIcon icon={category.icon} className="w-6 h-6 text-warm-muted dark:text-gray-500" />
     </div>
   );
 }

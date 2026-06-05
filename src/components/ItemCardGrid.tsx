@@ -4,6 +4,7 @@ import Image from "next/image";
 import { GroceryItem, Store } from "@/types";
 import { useProductImage } from "@/hooks/useProductImage";
 import { categoryForName } from "@/lib/categoryIcon";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { Id } from "../../convex/_generated/dataModel";
 
 interface ItemCardGridProps {
@@ -66,9 +67,7 @@ function GridProductImage({ item }: { item: GroceryItem }) {
       aria-label={category.label}
       title={category.label}
     >
-      <span className="text-4xl leading-none select-none" aria-hidden="true">
-        {category.emoji}
-      </span>
+      <CategoryIcon icon={category.icon} className="w-10 h-10 text-warm-muted dark:text-gray-600" strokeWidth={1.25} />
     </div>
   );
 }

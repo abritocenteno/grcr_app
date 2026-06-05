@@ -1,15 +1,20 @@
 // Graceful image fallback: when no real product photo can be found, infer a
-// food category from the item's name and show a representative icon instead of
-// a generic placeholder (or, worse, a mismatched photo). Pure client-side
-// keyword matching — works for both typed and store-picked items, NL + EN.
+// food category from the item's name and show a representative line icon
+// instead of a generic placeholder (or, worse, a mismatched photo). Pure
+// client-side keyword matching — works for both typed and store-picked items,
+// NL + EN. Real images always take priority; this only runs on imgStatus error.
 //
-// Real images always take priority; this only runs when imgStatus is "error".
+// Buckets are mostly broad with NEUTRAL icons (so the icon represents a
+// category, never a specific wrong item), plus a few common specifics split
+// out (mushroom, leafy greens) so frequent NL groceries feel accurate.
+//
+// `icon` is a key resolved to a concrete icon component in CategoryIcon.tsx.
 
 export interface FoodCategory {
   /** stable id */
   id: string;
-  /** emoji shown as the icon */
-  emoji: string;
+  /** icon key — mapped to a lucide (or custom) component in CategoryIcon.tsx */
+  icon: string;
   /** human label (alt text / aria) */
   label: string;
   /** lowercase keywords/stems matched against the product name */
@@ -17,11 +22,12 @@ export interface FoodCategory {
 }
 
 // Order matters: the first category with a keyword hit wins, so put more
-// specific categories before broad ones (e.g. "drinks" before generic).
+// specific categories before the broad ones they'd otherwise fall into
+// (mushroom + leafy BEFORE vegetables, etc.).
 const CATEGORIES: FoodCategory[] = [
   {
     id: "dairy",
-    emoji: "🥛",
+    icon: "dairy",
     label: "Dairy",
     keywords: [
       "melk", "milk", "kaas", "cheese", "yoghurt", "yogurt", "kwark", "boter",
@@ -31,13 +37,23 @@ const CATEGORIES: FoodCategory[] = [
   },
   {
     id: "eggs",
-    emoji: "🥚",
+    icon: "eggs",
     label: "Eggs",
     keywords: ["ei", "eieren", "egg", "eggs"],
   },
   {
+    id: "fish",
+    icon: "fish",
+    label: "Fish",
+    keywords: [
+      "vis", "fish", "zalm", "salmon", "tonijn", "tuna", "garnaal", "garnalen",
+      "shrimp", "haring", "kabeljauw", "cod", "makreel", "mosselen", "mussels",
+      "schol", "sardines", "paling", "forel", "trout",
+    ],
+  },
+  {
     id: "meat",
-    emoji: "🥩",
+    icon: "meat",
     label: "Meat",
     keywords: [
       "vlees", "meat", "kip", "chicken", "rund", "beef", "varken", "pork",
@@ -48,37 +64,48 @@ const CATEGORIES: FoodCategory[] = [
     ],
   },
   {
-    id: "fish",
-    emoji: "🐟",
-    label: "Fish",
+    // Split out: champignons are common and shouldn't read as broccoli/produce.
+    id: "mushroom",
+    icon: "mushroom",
+    label: "Mushrooms",
     keywords: [
-      "vis", "fish", "zalm", "salmon", "tonijn", "tuna", "garnaal", "garnalen",
-      "shrimp", "haring", "kabeljauw", "cod", "makreel", "mosselen", "mussels",
-      "schol", "sardines", "paling", "forel", "trout",
+      "champignon", "champignons", "kastanjechampignon", "paddenstoel",
+      "paddenstoelen", "oesterzwam", "shiitake", "portobello", "cantharel",
+      "eekhoorntjesbrood", "mushroom", "mushrooms",
+    ],
+  },
+  {
+    // Split out: leafy greens get a salad bowl rather than the carrot.
+    id: "leafy",
+    icon: "leafy",
+    label: "Leafy greens",
+    keywords: [
+      "sla", "lettuce", "spinazie", "spinach", "rucola", "arugula", "andijvie",
+      "veldsla", "boerenkool", "kale", "ijsbergsla", "kropsla", "salad",
     ],
   },
   {
     id: "vegetables",
-    emoji: "🥦",
+    icon: "vegetables",
     label: "Vegetables",
     keywords: [
-      "groente", "vegetable", "sla", "lettuce", "tomaat", "tomato", "komkommer",
-      "cucumber", "paprika", "pepper", "ui", "onion", "wortel", "carrot",
-      "broccoli", "bloemkool", "cauliflower", "spinazie", "spinach", "champignon",
-      "champignons", "mushroom", "aardappel", "potato", "aardappelen", "courgette",
+      "groente", "vegetable", "tomaat", "tomat", "tomato", "komkommer", "cucumber",
+      "paprika", "ui", "onion", "wortel", "carrot", "broccoli", "bloemkool",
+      "cauliflower", "aardappel", "potato", "aardappelen", "courgette",
       "zucchini", "aubergine", "prei", "leek", "knoflook", "garlic", "boon",
       "bonen", "bean", "erwt", "pea", "mais", "corn", "kool", "cabbage",
-      "andijvie", "rucola", "spruitjes", "asperge", "asparagus", "biet", "radijs",
-      "selderij", "celery", "pompoen", "pumpkin", "avocado",
+      "spruitjes", "asperge", "asparagus", "biet", "radijs", "selderij",
+      "celery", "pompoen", "pumpkin", "avocado",
     ],
   },
   {
     id: "fruit",
-    emoji: "🍎",
+    icon: "fruit",
     label: "Fruit",
     keywords: [
-      "fruit", "appel", "apple", "banaan", "banana", "sinaasappel", "orange",
-      "peer", "pear", "druif", "druiven", "grape", "aardbei", "strawberry",
+      "fruit", "appel", "apple", "banaan", "banan", "banana", "sinaasappel",
+      "orange", "peer", "peren", "pear", "druif", "druiven", "grape", "aardbei",
+      "strawberry",
       "framboos", "raspberry", "bes", "bessen", "berry", "kiwi", "mango",
       "ananas", "pineapple", "meloen", "melon", "citroen", "lemon", "limoen",
       "lime", "perzik", "peach", "nectarine", "pruim", "plum", "kers", "cherry",
@@ -87,7 +114,7 @@ const CATEGORIES: FoodCategory[] = [
   },
   {
     id: "bakery",
-    emoji: "🍞",
+    icon: "bakery",
     label: "Bakery",
     keywords: [
       "brood", "bread", "stokbrood", "baguette", "bolletje", "broodje", "bun",
@@ -98,7 +125,7 @@ const CATEGORIES: FoodCategory[] = [
   },
   {
     id: "pasta_rice",
-    emoji: "🍝",
+    icon: "pasta_rice",
     label: "Pasta & rice",
     keywords: [
       "pasta", "spaghetti", "macaroni", "penne", "fusilli", "lasagne",
@@ -108,7 +135,7 @@ const CATEGORIES: FoodCategory[] = [
   },
   {
     id: "drinks",
-    emoji: "🥤",
+    icon: "drinks",
     label: "Drinks",
     keywords: [
       "cola", "fris", "frisdrank", "soda", "limonade", "sap", "juice", "drinken",
@@ -118,7 +145,7 @@ const CATEGORIES: FoodCategory[] = [
   },
   {
     id: "coffee_tea",
-    emoji: "☕",
+    icon: "coffee_tea",
     label: "Coffee & tea",
     keywords: [
       "koffie", "coffee", "thee", "tea", "espresso", "cappuccino", "latte",
@@ -127,7 +154,7 @@ const CATEGORIES: FoodCategory[] = [
   },
   {
     id: "alcohol",
-    emoji: "🍷",
+    icon: "alcohol",
     label: "Alcohol",
     keywords: [
       "bier", "beer", "wijn", "wine", "rosé", "rose", "champagne", "prosecco",
@@ -137,27 +164,27 @@ const CATEGORIES: FoodCategory[] = [
   },
   {
     id: "snacks",
-    emoji: "🍫",
+    icon: "snacks",
     label: "Snacks & sweets",
     keywords: [
       "chips", "crisps", "chocolade", "chocolate", "snoep", "candy", "drop",
       "winegum", "haribo", "reep", "nootjes", "noten", "nuts", "pinda", "peanut",
       "popcorn", "zoutjes", "borrelnoot", "stroopwafel", "pepernoten", "speculaas",
-      "m&m", "snickers", "mars", "twix", "kitkat", "bonbon", "pinda's",
+      "m&m", "snickers", "mars", "twix", "kitkat", "bonbon",
     ],
   },
   {
     id: "frozen",
-    emoji: "🧊",
+    icon: "frozen",
     label: "Frozen",
     keywords: [
       "diepvries", "frozen", "ijs", "ice cream", "pizza", "patat", "friet",
-      "fries", "loempia", "bitterbal", "vissticks", "ijsje", "magnum", "ben",
+      "fries", "loempia", "bitterbal", "vissticks", "ijsje", "magnum",
     ],
   },
   {
     id: "breakfast",
-    emoji: "🥣",
+    icon: "breakfast",
     label: "Breakfast",
     keywords: [
       "muesli", "granola", "cornflakes", "cruesli", "havermout", "oatmeal",
@@ -167,7 +194,7 @@ const CATEGORIES: FoodCategory[] = [
   },
   {
     id: "pantry",
-    emoji: "🥫",
+    icon: "pantry",
     label: "Pantry",
     keywords: [
       "saus", "sauce", "ketchup", "mayonaise", "mayo", "mosterd", "mustard",
@@ -179,7 +206,7 @@ const CATEGORIES: FoodCategory[] = [
   },
   {
     id: "household",
-    emoji: "🧻",
+    icon: "household",
     label: "Household",
     keywords: [
       "wc papier", "toiletpapier", "toilet", "keukenrol", "tissue", "zakdoek",
@@ -191,18 +218,18 @@ const CATEGORIES: FoodCategory[] = [
   },
 ];
 
-// Default when nothing matches — a neutral cart/basket marker.
+// Default when nothing matches — a neutral basket marker.
 export const DEFAULT_CATEGORY: FoodCategory = {
   id: "other",
-  emoji: "🛒",
+  icon: "other",
   label: "Other",
   keywords: [],
 };
 
 /**
  * Infer a food category from a product name via keyword matching.
- * Returns DEFAULT_CATEGORY when nothing matches. Whole-word aware so "ei"
- * doesn't match inside "kweistjes" etc.
+ * Returns DEFAULT_CATEGORY when nothing matches. Whole-word aware so "ei"/"ui"
+ * don't match inside unrelated words.
  */
 export function categoryForName(name: string): FoodCategory {
   const lower = ` ${name.toLowerCase()} `;
