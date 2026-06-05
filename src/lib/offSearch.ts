@@ -58,28 +58,6 @@ export function relevance(query: string, name: string): number {
   return score;
 }
 
-// Looser, order-independent check: does the product name share at least one
-// meaningful word with the query? Stem-tolerant so plural/singular match
-// ("champignons" ~ "champignon"). Used to guard against attaching a wholly
-// unrelated store image (e.g. sausages for "kastanje champignons").
-export function sharesToken(query: string, name: string): boolean {
-  const qTokens = significantTokens(query);
-  if (qTokens.length === 0) return false;
-  const nameLower = name.toLowerCase();
-  const nameTokens = new Set(tokenize(name));
-
-  return qTokens.some((w) => {
-    if (nameTokens.has(w)) return true;
-    if (w.length >= 4) {
-      if (nameLower.includes(w)) return true;
-      // tolerate a trailing plural "s" mismatch in either direction
-      const stem = w.replace(/s$/, "");
-      if (stem.length >= 4 && nameLower.includes(stem)) return true;
-    }
-    return false;
-  });
-}
-
 export interface OFFHit {
   product_name?: string;
   image_front_small_url?: string;

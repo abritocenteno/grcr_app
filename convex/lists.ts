@@ -64,9 +64,8 @@ export const getUserLists = query({
     // Enrich with group names and item counts
     const enriched = await Promise.all(
       all.map(async (list) => {
-        const groupName = list.groupId
-          ? (await ctx.db.get(list.groupId))?.name ?? null
-          : null;
+        const group = list.groupId ? await ctx.db.get(list.groupId) : null;
+        const groupName = group && "name" in group ? group.name : null;
         const items = await ctx.db
           .query("items")
           .withIndex("by_list", (q: any) => q.eq("listId", list._id))
@@ -86,9 +85,8 @@ export const getList = query({
   args: { listId: v.id("lists") },
   handler: async (ctx, { listId }) => {
     const { list, userId } = await canAccessList(ctx, listId);
-    const groupName = list.groupId
-      ? (await ctx.db.get(list.groupId))?.name ?? null
-      : null;
+    const group = list.groupId ? await ctx.db.get(list.groupId) : null;
+    const groupName = group && "name" in group ? group.name : null;
     return { ...list, groupName, isOwner: list.ownerId === userId };
   },
 });

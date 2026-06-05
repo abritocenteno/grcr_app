@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { GroceryItem, Store } from "@/types";
 import { useProductImage } from "@/hooks/useProductImage";
+import { categoryForName } from "@/lib/categoryIcon";
 import { Id } from "../../convex/_generated/dataModel";
 
 interface ItemCardGridProps {
@@ -56,22 +57,18 @@ function GridProductImage({ item }: { item: GroceryItem }) {
     );
   }
 
+  // No real photo — fall back to a category icon inferred from the name.
+  const category = categoryForName(item.name);
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-10 h-10 text-warm-muted dark:text-gray-700"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={1}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M6 5.25h12A2.25 2.25 0 0120.25 7.5v9A2.25 2.25 0 0118 18.75H6A2.25 2.25 0 013.75 16.5v-9A2.25 2.25 0 016 5.25z"
-        />
-      </svg>
+    <div
+      className="w-full h-full flex items-center justify-center"
+      role="img"
+      aria-label={category.label}
+      title={category.label}
+    >
+      <span className="text-4xl leading-none select-none" aria-hidden="true">
+        {category.emoji}
+      </span>
     </div>
   );
 }

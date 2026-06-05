@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { STORE_NAME, OFFHit, fetchOFFHits, relevance, sharesToken } from "@/lib/offSearch";
+import { STORE_NAME, OFFHit, fetchOFFHits, relevance } from "@/lib/offSearch";
 import { isAHStore, searchAH, rankAH } from "@/lib/ahApi";
 import { isLidlStore, searchLidl, rankLidl } from "@/lib/lidlApi";
 
@@ -30,9 +30,12 @@ export async function GET(request: NextRequest) {
     if (isAHStore(store)) {
       try {
         const ah = rankAH(q, await searchAH(q, 15));
-        // Only attach an image whose product actually matches the query —
-        // never a wholly-unrelated product's photo.
-        const hit = ah.find((r) => r.imgUrl && sharesToken(q, r.name));
+        // Only attach an image whose product genuinely matches the query: the
+        // head term must be present (relevance > 0). A loose word overlap isn't
+        // enough — we'd rather fall through to OFF (or a category icon) than
+        // show a related-but-wrong product (e.g. a roerbakmix for "kastanje
+        // champignons").
+        const hit = ah.find((r) => r.imgUrl && relevance(q, r.name) > 0);
         if (hit?.imgUrl) return NextResponse.json({ imgUrl: hit.imgUrl }, { headers: CACHE });
       } catch (e) {
         console.warn("[image-lookup] AH failed, falling back to OFF:", e);
@@ -43,9 +46,10 @@ export async function GET(request: NextRequest) {
     if (isLidlStore(store)) {
       try {
         const lidl = rankLidl(q, await searchLidl(q, 24));
-        // Only attach an image whose product actually matches the query
-        // (kills e.g. a sausage photo for "kastanje champignons").
-        const hit = lidl.find((r) => r.imgUrl && sharesToken(q, r.name));
+        // Head-term match required (see AH branch). Kills a sausage *and* a
+        // "Roerbakmix champignon" photo for "kastanje champignons" — both lack
+        // the head term "kastanje", so we fall through to OFF.
+        const hit = lidl.find((r) => r.imgUrl && relevance(q, r.name) > 0);
         if (hit?.imgUrl) return NextResponse.json({ imgUrl: hit.imgUrl }, { headers: CACHE });
       } catch (e) {
         console.warn("[image-lookup] Lidl failed, falling back to OFF:", e);

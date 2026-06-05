@@ -36,7 +36,7 @@ export function useProductImage({ itemId, name, store, currentImgStatus }: Args)
       try {
         await updateImgUrl({ itemId, imgUrl: undefined, imgStatus: "loading" });
 
-        if (cached !== null) {
+        if (cached) {
           const imgUrl = cached.imgUrl;
           await updateImgUrl({ itemId, imgUrl, imgStatus: imgUrl ? "done" : "error" });
           return;

@@ -72,8 +72,8 @@ export default function ListPage() {
 
   // Stores = persisted list.stores (or defaults) unioned with any store that
   // currently has items (so removing never orphans items off-screen).
-  const persistedStores = list?.stores ?? DEFAULT_STORES;
-  const itemStores = [...new Set(allItems.map((i) => i.store))];
+  const persistedStores: string[] = list?.stores ?? DEFAULT_STORES;
+  const itemStores = Array.from(new Set(allItems.map((i) => i.store)));
   const stores = [
     ...persistedStores,
     ...itemStores.filter(
