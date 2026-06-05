@@ -24,11 +24,23 @@ export interface GroceryList {
   name: string;
   groupId?: Id<"groups">;
   groupName?: string | null;
+  memberCount?: number;
   lidlCount: number;
   ahCount: number;
   totalCount: number;
   isOwner: boolean;
   createdAt: number;
+}
+
+// A home-screen suggestion (store-popular product, popular pick, or favourite).
+// `store` is set for store-specific rows so Quick Add can preselect it.
+export interface SuggestionItem {
+  name: string;
+  imgUrl: string | null;
+  isPersonal?: boolean;
+  store?: string;
+  price?: number | null;
+  unit?: string | null;
 }
 
 export interface Group {

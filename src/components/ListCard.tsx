@@ -9,6 +9,34 @@ interface ListCardProps {
   onDelete?: (listId: Id<"lists">) => void;
 }
 
+// Overlapping stack of generic member avatars. We don't store Clerk profile
+// photos in Convex, so these are anonymous chips — the point is to signal "this
+// list is shared with N people" at a glance. Shows up to 3, then a +N overflow.
+function MemberAvatars({ count }: { count: number }) {
+  if (count < 2) return null; // a solo "group" isn't worth showing
+  const shown = Math.min(count, 3);
+  const overflow = count - shown;
+  return (
+    <div className="flex items-center -space-x-1.5">
+      {Array.from({ length: shown }).map((_, i) => (
+        <span
+          key={i}
+          className="w-5 h-5 rounded-full bg-warm-bg dark:bg-gray-800 ring-2 ring-warm-card dark:ring-gray-900 flex items-center justify-center"
+        >
+          <svg className="w-3 h-3 text-warm-subtle dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+          </svg>
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="w-5 h-5 rounded-full bg-warm-text/10 dark:bg-gray-700 ring-2 ring-warm-card dark:ring-gray-900 flex items-center justify-center text-[9px] font-bold text-warm-subtle dark:text-gray-400">
+          +{overflow}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function ListCard({ list, onDelete }: ListCardProps) {
   const router = useRouter();
   const hasItems = list.totalCount > 0;
@@ -56,14 +84,17 @@ export function ListCard({ list, onDelete }: ListCardProps) {
           <p className="text-xs text-warm-subtle dark:text-gray-500 mt-0.5">Empty list</p>
         )}
 
-        {/* Group badge */}
+        {/* Group badge + member avatars */}
         {list.groupName && (
-          <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-warm-subtle dark:text-gray-500 bg-warm-muted dark:bg-gray-800 px-2 py-0.5 rounded-full">
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            {list.groupName}
-          </span>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-warm-subtle dark:text-gray-500 bg-warm-muted dark:bg-gray-800 px-2 py-0.5 rounded-full">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {list.groupName}
+            </span>
+            <MemberAvatars count={list.memberCount ?? 0} />
+          </div>
         )}
       </div>
 

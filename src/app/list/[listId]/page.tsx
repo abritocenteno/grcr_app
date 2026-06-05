@@ -256,6 +256,7 @@ export default function ListPage() {
           currentGroupName={list.groupName}
           groups={groups}
           isOwner={list.isOwner}
+          onLeft={() => router.replace("/")}
         />
       )}
     </div>

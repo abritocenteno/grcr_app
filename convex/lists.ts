@@ -66,6 +66,14 @@ export const getUserLists = query({
       all.map(async (list) => {
         const group = list.groupId ? await ctx.db.get(list.groupId) : null;
         const groupName = group && "name" in group ? group.name : null;
+        const memberCount = list.groupId
+          ? (
+              await ctx.db
+                .query("groupMembers")
+                .withIndex("by_group", (q: any) => q.eq("groupId", list.groupId))
+                .collect()
+            ).length
+          : 0;
         const items = await ctx.db
           .query("items")
           .withIndex("by_list", (q: any) => q.eq("listId", list._id))
@@ -73,7 +81,7 @@ export const getUserLists = query({
         const lidlCount = items.filter((i: any) => i.store === "lidl" && !i.done).length;
         const ahCount = items.filter((i: any) => i.store === "ah" && !i.done).length;
         const totalCount = items.length;
-        return { ...list, groupName, lidlCount, ahCount, totalCount, isOwner: list.ownerId === userId };
+        return { ...list, groupName, memberCount, lidlCount, ahCount, totalCount, isOwner: list.ownerId === userId };
       })
     );
 

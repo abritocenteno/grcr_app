@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { BottomSheet } from "./BottomSheet";
+import { ShareActions } from "./ShareActions";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
@@ -16,6 +17,8 @@ interface ShareSheetProps {
   currentGroupName?: string | null;
   groups: Group[];
   isOwner: boolean;
+  /** called after a non-owner leaves the household (they lose list access) */
+  onLeft?: () => void;
 }
 
 export function ShareSheet({
@@ -27,6 +30,7 @@ export function ShareSheet({
   currentGroupName,
   groups,
   isOwner,
+  onLeft,
 }: ShareSheetProps) {
   const [newGroupName, setNewGroupName] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -37,6 +41,14 @@ export function ShareSheet({
   const shareListMutation = useMutation(api.lists.shareListWithGroup);
   const unshareListMutation = useMutation(api.lists.unshareList);
   const createTokenMutation = useMutation(api.groups.createInviteToken);
+  const leaveGroupMutation = useMutation(api.groups.leaveGroup);
+
+  async function handleLeave() {
+    if (!currentGroupId) return;
+    await leaveGroupMutation({ groupId: currentGroupId });
+    handleClose();
+    onLeft?.();
+  }
 
   const members = useQuery(
     api.groups.getGroupMembers,
@@ -122,6 +134,14 @@ export function ShareSheet({
                     {copied ? "Copied!" : "Copy"}
                   </button>
                 </div>
+
+                {/* Send the invite straight to WhatsApp / Messenger / etc. */}
+                <p className="text-xs text-warm-subtle dark:text-gray-500 font-medium pt-1">Send via</p>
+                <ShareActions
+                  link={inviteLink}
+                  title={`Join ${currentGroupName} on Groceries`}
+                  message={`Join "${listName}" — our shared grocery list:`}
+                />
               </div>
             ) : (
               <button
@@ -132,12 +152,19 @@ export function ShareSheet({
               </button>
             )}
 
-            {isOwner && (
+            {isOwner ? (
               <button
                 onClick={() => unshareListMutation({ listId })}
                 className="w-full h-10 rounded-xl text-xs font-medium text-red-400 active:bg-red-50 dark:active:bg-red-950/20 transition-colors"
               >
                 Remove from household
+              </button>
+            ) : (
+              <button
+                onClick={handleLeave}
+                className="w-full h-10 rounded-xl text-xs font-medium text-red-400 active:bg-red-50 dark:active:bg-red-950/20 transition-colors"
+              >
+                Leave household
               </button>
             )}
           </>
