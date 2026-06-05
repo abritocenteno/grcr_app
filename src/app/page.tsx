@@ -3,16 +3,19 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { UserButton } from "@clerk/nextjs";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { useLists } from "@/hooks/useLists";
 import { useGroups } from "@/hooks/useGroups";
 import { ListCard } from "@/components/ListCard";
 import { FAB } from "@/components/FAB";
 import { CreateListSheet } from "@/components/CreateListSheet";
-import { SuggestionsSection } from "@/components/SuggestionsSection";
+import { StorePopularRow } from "@/components/StorePopularRow";
+import { SuggestionRow } from "@/components/SuggestionRow";
 import { QuickAddSheet } from "@/components/QuickAddSheet";
 import { Id } from "../../convex/_generated/dataModel";
-import type { SuggestionItem } from "@/components/SuggestionsSection";
+import type { SuggestionItem } from "@/types";
+import type { PopularProduct } from "@/app/api/popular-products/route";
 
 function SkeletonListCard() {
   return (
@@ -33,6 +36,26 @@ export default function Home() {
   const [quickAddItem, setQuickAddItem] = useState<SuggestionItem | null>(null);
   const { lists, isLoading: listsLoading, createList, deleteList } = useLists();
   const { groups } = useGroups();
+
+  // Stores the user actually shops — one popular row each (defaults ah + lidl).
+  const visitedStores = useQuery(
+    api.suggestions.getVisitedStores,
+    isAuthenticated ? {} : "skip"
+  ) as string[] | undefined;
+
+  // Generic "Popular picks" row (Dutch staples, store-agnostic).
+  const [popularPicks, setPopularPicks] = useState<SuggestionItem[]>([]);
+  const [loadingPicks, setLoadingPicks] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/popular-products")
+      .then((r) => r.json())
+      .then((d: { products: PopularProduct[] }) =>
+        setPopularPicks(d.products.map((p) => ({ name: p.name, imgUrl: p.imgUrl })))
+      )
+      .catch(() => {})
+      .finally(() => setLoadingPicks(false));
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -66,8 +89,23 @@ export default function Home() {
       </header>
 
       <main className="flex-1 overflow-y-auto pb-28">
-        {/* Popular / frequent items grid */}
-        <SuggestionsSection onSelect={(item) => setQuickAddItem(item)} />
+        {/* One scrollable row of popular products per store the user shops */}
+        {(visitedStores ?? ["ah", "lidl"]).map((store) => (
+          <StorePopularRow
+            key={store}
+            store={store}
+            onSelect={(item) => setQuickAddItem(item)}
+          />
+        ))}
+
+        {/* Generic popular picks */}
+        <SuggestionRow
+          title="Popular picks"
+          hint="across stores"
+          items={popularPicks}
+          isLoading={loadingPicks}
+          onSelect={(item) => setQuickAddItem(item)}
+        />
 
         {/* Divider + "Your lists" label */}
         <div className="flex items-center gap-3 px-4 pb-3">

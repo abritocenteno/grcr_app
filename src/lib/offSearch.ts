@@ -61,6 +61,7 @@ export function relevance(query: string, name: string): number {
 export interface OFFHit {
   product_name?: string;
   image_front_small_url?: string;
+  categories_tags?: string[];
 }
 
 // Build the Lucene query: only meaningful tokens, optional store filter.
@@ -72,7 +73,7 @@ export function buildQuery(q: string, storeName?: string): string {
 export async function fetchOFFHits(q: string, storeName?: string, pageSize = 20): Promise<OFFHit[]> {
   const url = new URL(OFF_SEARCH);
   url.searchParams.set("q", buildQuery(q, storeName));
-  url.searchParams.set("fields", "product_name,image_front_small_url");
+  url.searchParams.set("fields", "product_name,image_front_small_url,categories_tags");
   url.searchParams.set("page_size", String(pageSize));
 
   const res = await fetch(url.toString(), {
@@ -83,4 +84,61 @@ export async function fetchOFFHits(q: string, storeName?: string, pageSize = 20)
 
   const data: { hits?: OFFHit[] } = await res.json();
   return data.hits ?? [];
+}
+
+export interface OFFPickOpts {
+  /** core noun stem the product name MUST contain (e.g. "paprika") */
+  match: string;
+  /** reject if the name contains any of these substrings (e.g. "poeder") */
+  avoidWords?: string[];
+  /** reject if any OFF category tag contains any of these (e.g. "spices").
+   *  Names alone can't separate a paprika vegetable from paprika powder —
+   *  both are literally named "Paprika" — so the category tag is the only
+   *  reliable discriminator for produce vs. processed variants. */
+  avoidCats?: string[];
+}
+
+// Does a product name clear the relevance gate (contains the core noun) and
+// avoid the banned words? Shared by OFF and store-catalogue (AH/Lidl) pickers.
+export function nameOk(name: string, match: string, avoidWords?: string[]): boolean {
+  if (relevance(match, name) <= 0) return false;
+  if (avoidWords?.length) {
+    const lower = name.toLowerCase();
+    if (avoidWords.some((w) => lower.includes(w))) return false;
+  }
+  return true;
+}
+
+// Ordered list of candidate image URLs from OFF hits that pass relevance +
+// word/category filters. Order is preserved (OFF relevance order).
+export function offImageCandidates(hits: OFFHit[], opts: OFFPickOpts): string[] {
+  const { match, avoidWords, avoidCats } = opts;
+  return hits
+    .filter((h) => {
+      const url = h.image_front_small_url?.trim();
+      if (!url) return false;
+      if (!nameOk(h.product_name ?? "", match, avoidWords)) return false;
+      if (avoidCats?.length) {
+        const cats = h.categories_tags ?? [];
+        if (cats.some((c) => avoidCats.some((a) => c.includes(a)))) return false;
+      }
+      return true;
+    })
+    .map((h) => h.image_front_small_url!.trim());
+}
+
+// OFF's search index frequently returns stale image URLs that 404. Probe
+// candidates in order (cheap HEAD requests) and return the first that's live,
+// so a dead top hit falls through to the next real photo instead of showing a
+// broken image. Returns null if none resolve → caller shows a category icon.
+export async function firstLiveImage(urls: string[], cap = 8): Promise<string | null> {
+  for (const url of urls.slice(0, cap)) {
+    try {
+      const res = await fetch(url, { method: "HEAD", next: { revalidate: 604800 } });
+      if (res.ok) return url;
+    } catch {
+      // network error — try the next candidate
+    }
+  }
+  return null;
 }

@@ -5,9 +5,8 @@ import Image from "next/image";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { BottomSheet } from "./BottomSheet";
-import { GroceryList } from "@/types";
+import { GroceryList, SuggestionItem } from "@/types";
 import { getStoreColor, storeLabel } from "@/lib/storeColors";
-import type { SuggestionItem } from "./SuggestionsSection";
 
 interface QuickAddSheetProps {
   item: SuggestionItem | null;
@@ -31,8 +30,19 @@ export function QuickAddSheet({ item, lists, onClose }: QuickAddSheetProps) {
     if (item) {
       setName(item.name);
       setAdding(false);
-      setShowCustom(false);
-      setCustomStore("");
+      // Preselect the store the suggestion came from (store-popular rows).
+      const from = item.store?.trim().toLowerCase();
+      if (from && COMMON_STORES.includes(from)) {
+        setStore(from);
+        setShowCustom(false);
+        setCustomStore("");
+      } else if (from) {
+        setShowCustom(true);
+        setCustomStore(from);
+      } else {
+        setShowCustom(false);
+        setCustomStore("");
+      }
       if (lists.length > 0) setSelectedListId(lists[0]._id);
     }
   }, [item, lists]);
