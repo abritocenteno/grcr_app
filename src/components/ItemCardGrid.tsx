@@ -25,11 +25,6 @@ const STORE_QTY_BG: Record<Store, string> = {
   ah: "bg-ah",
 };
 
-const STORE_BTN: Record<Store, string> = {
-  lidl: "bg-lidl hover:bg-[#003d85]",
-  ah: "bg-ah hover:bg-[#0080b5]",
-};
-
 function GridProductImage({ item }: { item: GroceryItem }) {
   useProductImage({
     itemId: item._id,

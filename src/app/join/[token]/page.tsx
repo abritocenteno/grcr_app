@@ -64,7 +64,7 @@ export default function JoinPage() {
           </svg>
         </div>
         <p className="text-base font-bold text-warm-text dark:text-gray-100">Invalid invite link</p>
-        <p className="text-sm text-warm-subtle dark:text-gray-500 mt-2">This link may have expired or doesn't exist.</p>
+        <p className="text-sm text-warm-subtle dark:text-gray-500 mt-2">This link may have expired or doesn&apos;t exist.</p>
         <button
           onClick={() => router.replace("/")}
           className="mt-6 px-6 h-12 rounded-2xl bg-warm-text dark:bg-gray-100 text-warm-card dark:text-gray-900 font-bold text-sm"

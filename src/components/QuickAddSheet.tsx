@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
+import { Id } from "../../convex/_generated/dataModel";
 import { BottomSheet } from "./BottomSheet";
 import { GroceryList, SuggestionItem } from "@/types";
 import { getStoreColor, storeLabel } from "@/lib/storeColors";
@@ -56,7 +57,7 @@ export function QuickAddSheet({ item, lists, onClose }: QuickAddSheetProps) {
       // Use the suggestion's image only if the name wasn't edited away from it.
       const imgUrl =
         item && name.trim() === item.name && item.imgUrl ? item.imgUrl : undefined;
-      await addItem({ listId: selectedListId as any, name: name.trim(), store: effectiveStore, imgUrl });
+      await addItem({ listId: selectedListId as Id<"lists">, name: name.trim(), store: effectiveStore, imgUrl });
       onClose();
     } catch {
       setAdding(false);
