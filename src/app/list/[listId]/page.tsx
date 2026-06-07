@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useConvexAuth, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -71,15 +71,18 @@ export default function ListPage() {
   const deleteByStore = useMutation(api.items.deleteByStore);
 
   // Stores = persisted list.stores (or defaults) unioned with any store that
-  // currently has items (so removing never orphans items off-screen).
+  // currently has items (so removing never orphans items off-screen). Memoised
+  // so its identity is stable across renders (it's a useEffect dependency).
   const persistedStores: string[] = list?.stores ?? DEFAULT_STORES;
-  const itemStores = Array.from(new Set(allItems.map((i) => i.store)));
-  const stores = [
-    ...persistedStores,
-    ...itemStores.filter(
-      (s) => !persistedStores.some((p) => p.toLowerCase() === s.toLowerCase())
-    ),
-  ];
+  const stores = useMemo(() => {
+    const itemStores = Array.from(new Set(allItems.map((i) => i.store)));
+    return [
+      ...persistedStores,
+      ...itemStores.filter(
+        (s) => !persistedStores.some((p) => p.toLowerCase() === s.toLowerCase())
+      ),
+    ];
+  }, [persistedStores, allItems]);
 
   // Keep activeStore valid — fall back to first tab if current one disappears
   useEffect(() => {
