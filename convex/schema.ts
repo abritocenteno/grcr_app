@@ -26,6 +26,10 @@ export default defineSchema({
       v.literal("error")
     ),
     note: v.optional(v.string()),
+    // Who added the item — used to notify other members (and skip notifying the
+    // adder). Optional so items created before this field still validate.
+    addedBy: v.optional(v.string()),     // Clerk user id (Convex identity subject)
+    addedByName: v.optional(v.string()), // display-name snapshot for the toast
     createdAt: v.number(),
   })
     .index("by_list", ["listId"])

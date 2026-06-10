@@ -1,12 +1,16 @@
 "use client";
 
 import { useQuery, useMutation, useConvexAuth } from "convex/react";
+import { useUser } from "@clerk/nextjs";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { GroceryItem } from "@/types";
+import { displayName } from "@/lib/displayName";
 
 export function useItems(listId: Id<"lists"> | null) {
   const { isAuthenticated } = useConvexAuth();
+  const { user } = useUser();
+  const addedByName = displayName(user);
 
   // Returns ALL items for the list — store filtering is done client-side
   const items = useQuery(
@@ -25,7 +29,7 @@ export function useItems(listId: Id<"lists"> | null) {
     items: items ?? [],
     isLoading: items === undefined,
     addItem: (name: string, store: string, imgUrl?: string) =>
-      listId ? addItemMutation({ listId, name, store, imgUrl }) : Promise.resolve(null),
+      listId ? addItemMutation({ listId, name, store, imgUrl, addedByName }) : Promise.resolve(null),
     deleteItem: (itemId: Id<"items">) => deleteItemMutation({ itemId }),
     toggleDone: (itemId: Id<"items">) => toggleDoneMutation({ itemId }),
     changeQty: (itemId: Id<"items">, delta: -1 | 1) => changeQtyMutation({ itemId, delta }),

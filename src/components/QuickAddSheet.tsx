@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useMutation } from "convex/react";
+import { useUser } from "@clerk/nextjs";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import { BottomSheet } from "./BottomSheet";
 import { GroceryList, SuggestionItem } from "@/types";
 import { getStoreColor, storeLabel } from "@/lib/storeColors";
+import { displayName } from "@/lib/displayName";
 
 interface QuickAddSheetProps {
   item: SuggestionItem | null;
@@ -26,6 +28,7 @@ export function QuickAddSheet({ item, lists, onClose }: QuickAddSheetProps) {
   const [adding, setAdding] = useState(false);
 
   const addItem = useMutation(api.items.addItem);
+  const { user } = useUser();
 
   useEffect(() => {
     if (item) {
@@ -57,7 +60,7 @@ export function QuickAddSheet({ item, lists, onClose }: QuickAddSheetProps) {
       // Use the suggestion's image only if the name wasn't edited away from it.
       const imgUrl =
         item && name.trim() === item.name && item.imgUrl ? item.imgUrl : undefined;
-      await addItem({ listId: selectedListId as Id<"lists">, name: name.trim(), store: effectiveStore, imgUrl });
+      await addItem({ listId: selectedListId as Id<"lists">, name: name.trim(), store: effectiveStore, imgUrl, addedByName: displayName(user) });
       onClose();
     } catch {
       setAdding(false);
